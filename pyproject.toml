@@ -1,0 +1,34 @@
+[project]
+name = "macp-cmab"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "devarshi-balu", email = "studious.devarshibalu@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium>=1.2.3",
+    "reinforced-lib>=2.0.4",
+    "tfp-nightly[jax]>=0.26.0.dev20260902",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/*"]
+
+[tool.hatch.build.targets.wheel]
+include = ["src/*"]
+sources = ["src"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "matplotlib>=3.10.9",
+    "pandas>=3.0.5",
+    "plotly>=7.0.0",
+    "tqdm>=4.70.0",
+]
