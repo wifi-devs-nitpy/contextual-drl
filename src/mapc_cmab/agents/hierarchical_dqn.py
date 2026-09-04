@@ -81,7 +81,6 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         self.encode_ap_stations_to_tx_vector = encode_ap_stations_to_tx_vector 
         self.encode_sta_links_vector = encode_sta_links_vector
 
-        self.tx_matrix_shape = tx_matrix_shape
         self.tx_power_levels = tx_power_levels 
 
         self.find_groups_agent_last_step = 0
