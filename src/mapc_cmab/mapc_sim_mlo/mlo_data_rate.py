@@ -67,16 +67,16 @@ def network_data_rate_mlo(
     
     key_2g, key_5g, key_6g = jax.random.split(key, 3)    
 
-    # tx_power_array_2g = tx_power_indices_to_tx_power(tx_power_indices[0], n_tx_power_levels=n_tx_power_levels, min_tx_power=MIN_TX_POWER, max_tx_power=MAX_TX_POWER)
-    # tx_power_array_5g = tx_power_indices_to_tx_power(tx_power_indices[1], n_tx_power_levels=n_tx_power_levels, min_tx_power=MIN_TX_POWER, max_tx_power=MAX_TX_POWER)
-    # tx_power_array_6g = tx_power_indices_to_tx_power(tx_power_indices[2], n_tx_power_levels=n_tx_power_levels, min_tx_power=MIN_TX_POWER, max_tx_power=MAX_TX_POWER)
+    tx_power_array_2g = tx_power_indices_to_tx_power(tx_power_indices[0], n_tx_power_levels=n_tx_power_levels, min_tx_power=MIN_TX_POWER, max_tx_power=MAX_TX_POWER)
+    tx_power_array_5g = tx_power_indices_to_tx_power(tx_power_indices[1], n_tx_power_levels=n_tx_power_levels, min_tx_power=MIN_TX_POWER, max_tx_power=MAX_TX_POWER)
+    tx_power_array_6g = tx_power_indices_to_tx_power(tx_power_indices[2], n_tx_power_levels=n_tx_power_levels, min_tx_power=MIN_TX_POWER, max_tx_power=MAX_TX_POWER)
     
-    tx_power_array_2g = jnp.ones(shape=(n_nodes, ), dtype=jnp.float32) * DEFAULT_TX_POWER
-    tx_power_array_5g = jnp.ones(shape=(n_nodes, ), dtype=jnp.float32) * DEFAULT_TX_POWER
-    tx_power_array_6g = jnp.ones(shape=(n_nodes, ), dtype=jnp.float32) * DEFAULT_TX_POWER
+    # tx_power_array_2g = jnp.ones(shape=(n_nodes, ), dtype=jnp.float32) * DEFAULT_TX_POWER
+    # tx_power_array_5g = jnp.ones(shape=(n_nodes, ), dtype=jnp.float32) * DEFAULT_TX_POWER
+    # tx_power_array_6g = jnp.ones(shape=(n_nodes, ), dtype=jnp.float32) * DEFAULT_TX_POWER
 
     data_rate_2g = net_data_rate_mlo_1(key_2g, tx=tx_matrices[0], tx_power=tx_power_array_2g, channel_width=CHANNEL_WIDTH_2G, path_loss_fn=path_loss_2g)
     data_rate_5g = net_data_rate_mlo_1(key_5g, tx=tx_matrices[1], tx_power=tx_power_array_5g, channel_width=CHANNEL_WIDTH_5G, path_loss_fn=path_loss_5g)
     data_rate_6g = net_data_rate_mlo_1(key_6g, tx=tx_matrices[2],  tx_power=tx_power_array_6g, channel_width=CHANNEL_WIDTH_6G, path_loss_fn=path_loss_6g)
     
-    return (data_rate_2g, data_rate_5g, data_rate_6g)  
+    return (data_rate_2g + data_rate_5g + data_rate_6g)

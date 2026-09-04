@@ -62,10 +62,10 @@ class HierarchicalMapcDQNAgent(MapcAgent):
             link_comb_index_to_links: dict[int, list],
             sta_index_mapping: dict[int, int],
             n_links: int,
-            tx_power_levels: int
+            n_tx_power_levels: int
         ):
 
-        self.associations = self.associations
+        self.associations = associations
         self.inv_associations = {sta: ap for ap in associations.keys() for sta in associations[ap]}
         self.find_groups_agent = find_groups_agent
         self.assign_stations_agent = assign_stations_agent
@@ -81,7 +81,7 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         self.encode_ap_stations_to_tx_vector = encode_ap_stations_to_tx_vector 
         self.encode_sta_links_vector = encode_sta_links_vector
 
-        self.tx_power_levels = tx_power_levels 
+        self.n_tx_power_levels = n_tx_power_levels 
 
         self.find_groups_agent_last_step = 0
         self.find_groups_agent_last_action = 0 
@@ -135,7 +135,7 @@ class HierarchicalMapcDQNAgent(MapcAgent):
                                 sample_observations={
                                     "env_state": context_lvl1
                                 }
-                        )
+                        ).item()
 
         self.find_groups_agent_last_action = find_groups_agent_action 
         self.find_groups_agent_last_step = self.step 
@@ -155,9 +155,9 @@ class HierarchicalMapcDQNAgent(MapcAgent):
                     'terminal': False
                 }, 
                 sample_observations={
-                    'env_sta': context_lvl2
+                    'env_state': context_lvl2
                 }
-            )
+            ).item()
             for ap in selected_aps
         } 
         #index of ap is actual node index of ap , index of sta is relative index of sta in associations[ap]
@@ -179,9 +179,9 @@ class HierarchicalMapcDQNAgent(MapcAgent):
                             'terminal': False
                         }, 
                         sample_observations={
-                            'env_sta': context_lvl3
+                            'env_state': context_lvl3
                         }
-                    )
+                    ).item()
                     for ap in selected_aps
                 }
         
@@ -225,9 +225,9 @@ class HierarchicalMapcDQNAgent(MapcAgent):
                             'terminal': False
                         }, 
                         sample_observations={
-                            'env_sta': context_lvl4
+                            'env_state': context_lvl4
                         }
-                )
+                ).item()
                 link_ap_sta[link]["tx_matrix"][self.inv_associations[sta], sta] = 1
                 link_ap_sta[link]["tx_power_indices"][self.inv_associations[sta]] = tx_power_index
                 self.assign_tx_power_agent_last_action[sta, link] = tx_power_index

@@ -6,6 +6,8 @@ import jax.numpy as jnp
 from chex import Array, Scalar, PRNGKey
 from mapc_cmab.mapc_sim_mlo.constants import DEFAULT_TX_POWER, DEFAULT_SIGMA, DATA_RATES, TAU
 from mapc_cmab.mapc_sim_mlo.sim import Internals, network_data_rate
+from mapc_cmab.mapc_sim_mlo.mlo_data_rate import network_data_rate_mlo 
+
 from mapc_cmab.mapc_sim_mlo.utils import default_path_loss
 
 from mapc_cmab.envs.scenario import Scenario
@@ -70,37 +72,23 @@ class StaticScenario(Scenario):
         self.nakagami_m = nakagami_m
 
         self.data_rate_fn = partial(
-            network_data_rate,
+            network_data_rate_mlo,
             pos=self.pos,
             sigma=self.sigma,
             walls=self.walls,
-            path_loss_fn=self.path_loss_fn,
-            channel_width=self.channel_width,
-            nakagami_m=self.nakagami_m,
+            n_tx_power_levels = 4
         )
         self.normalize_reward = DATA_RATES[self.channel_width][-1].item()
 
     def __call__(
             self,
             key: PRNGKey,
-            tx: Array,
-            tx_power: Optional[Array] = None,
-            mcs: Optional[Array] = None,
-            return_internals: bool = False
-    ) -> tuple[Scalar, Scalar, Optional[Internals]]:
-        if tx_power is None:
-            tx_power = jnp.zeros_like(self.tx_power)
-
-        data_rate_fn = jax.jit(self.data_rate_fn, static_argnames=('return_internals',))
-        out = data_rate_fn(key, tx, mcs=mcs, tx_power=self.tx_power - self.tx_power_delta * tx_power, return_internals=return_internals)
-
-        if return_internals:
-            thr, *internals = out
-        else:
-            thr, internals = out, tuple()
-
-        reward = thr / self.normalize_reward
-        return thr, reward, *internals
+            link_ap_sta: dict    
+        ) -> tuple[Scalar, Scalar, Optional[Internals]]:
+        data_rate_fn = jax.jit(self.data_rate_fn)
+        thr = data_rate_fn(key=key, link_ap_sta=link_ap_sta)
+        reward = thr/100
+        return thr, reward
 
     def split_scenario(self) -> list[tuple['StaticScenario', float]]:
         return [(self, self.n_steps * TAU)]

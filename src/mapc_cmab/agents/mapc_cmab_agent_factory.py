@@ -22,8 +22,6 @@ class MapcDQNAgentFactory:
     ----------
     assocations: dict[int, list[int]]
         The dictionary of associations between APs and Stations 
-    agent_type : DQN
-        The type of the agent 
     agent_params_lvl1 : dict
         The dictionary containing the params for the level1
     agent_params_lvl2 : dict
@@ -43,7 +41,6 @@ class MapcDQNAgentFactory:
     def __init__(
             self, 
             associations: dict[int, list[int]],
-            agent_type: DQN, 
             agent_params_lvl1: dict,
             agent_params_lvl2: dict, 
             agent_params_lvl3: dict, 
@@ -53,12 +50,11 @@ class MapcDQNAgentFactory:
             seed: int = 42, 
     ):
         self.associations = deepcopy(associations)
-        self.agent_type = agent_type
         self.agent_params_lvl1 = agent_params_lvl1
         self.agent_params_lvl2 = agent_params_lvl2
         self.agent_params_lvl3 = agent_params_lvl3
         self.agent_params_lvl4 = agent_params_lvl4
-        self.tx_power_levels = n_tx_power_levels
+        self.n_tx_power_levels = n_tx_power_levels
         self.n_links = n_links
         self.seed = seed
 
@@ -163,9 +159,9 @@ class MapcDQNAgentFactory:
                 agent_type=DQN,
 
                 agent_params = {
-                    "q_network": QNetwork_lv3(n_actions=self.n_links), 
+                    "q_network": QNetwork_lv3(n_actions=action_size_lvl3), 
 
-                    "obs_space_shape": (self.n_ap, self.stations_per_ap),  
+                    "obs_space_shape": (self.n_ap * self.stations_per_ap),  
                     "act_space_size": action_size_lvl3, 
 
                     "optimizer": optax.adam(1e-3), 
@@ -200,8 +196,8 @@ class MapcDQNAgentFactory:
                     agent_params = {
                         "q_network": QNetwork_lv1(n_actions=self.n_tx_power_levels), 
     
-                        "obs_space_shape": (self.n_sta, self.n_links),  
-                        "act_space_size": len(self.n_tx_power_levels), 
+                        "obs_space_shape": (self.n_sta * self.n_links),  
+                        "act_space_size": self.n_tx_power_levels, 
     
                         "optimizer": optax.adam(1e-3), 
     
@@ -236,7 +232,7 @@ class MapcDQNAgentFactory:
             link_comb_index_to_links=self.link_comb_index_to_links,
             sta_index_mapping=self.sta_index_mapping,
             n_links=self.n_links,
-            tx_power_levels=self.tx_power_levels,
+            n_tx_power_levels=self.n_tx_power_levels,
         )
 
 
@@ -334,7 +330,7 @@ class MapcDQNAgentFactory:
         rows = [ap_to_idx[ap] for ap in ap_sta_dict.keys()]
         cols = list(ap_sta_dict.values())
         res[rows, cols] = 1
-        return res
+        return res.reshape(-1)
     
     def _encode_sta_links_vector(self, sta_links: dict[int, int]):
         res = np.zeros((self.n_sta, self.n_links))
@@ -347,7 +343,7 @@ class MapcDQNAgentFactory:
                 for link in self.link_comb_index_to_links[idx]]
 
         res[rows, cols] = 1
-        return res
+        return res.reshape(-1)
     
     def _encode_sharing_ap(self, sharing_ap) -> Array:
         return np.isin(
