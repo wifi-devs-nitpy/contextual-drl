@@ -176,6 +176,10 @@ pdfs
 **/send_logs.py
 **/send_run_status.py
 **/*.zip
-**/*.png
 **/*.npy
 **/*.html
+
+
+## jax cache 
+jax_cache
+**/*.np*

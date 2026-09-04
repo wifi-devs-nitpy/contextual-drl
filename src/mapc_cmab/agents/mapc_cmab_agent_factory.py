@@ -49,7 +49,7 @@ class MapcDQNAgentFactory:
             n_tx_power_levels: int = 4, 
             seed: int = 42, 
     ):
-        self.associations = deepcopy(associations)
+        self.associations = {ap: np.asarray(stations) for ap, stations in associations.items()}
         self.agent_params_lvl1 = agent_params_lvl1
         self.agent_params_lvl2 = agent_params_lvl2
         self.agent_params_lvl3 = agent_params_lvl3
@@ -79,6 +79,8 @@ class MapcDQNAgentFactory:
             for index, sta in enumerate(self.stations)
         }
     def create_hierarchical_DQN_cmapc_agent(self) -> MapcAgent: 
+        self.seed += 1
+        np.random.seed(self.seed)
         """
         Intialises the Hierarchical DQN Agent 
 
@@ -96,7 +98,7 @@ class MapcDQNAgentFactory:
             agent_params = {
                 "q_network": QNetwork_lv2(n_actions=action_size_lvl1), 
 
-                "obs_space_shape": (self.n_ap, ), # sharing AP, and its station in encoded format  
+                "obs_space_shape": (self.n_ap + self.stations_per_ap), # sharing AP, and its station in encoded format  
                 "act_space_size": action_size_lvl1, 
 
                 "optimizer": optax.adam(1e-3), 
@@ -345,12 +347,16 @@ class MapcDQNAgentFactory:
         res[rows, cols] = 1
         return res.reshape(-1)
     
-    def _encode_sharing_ap(self, sharing_ap) -> Array:
-        return np.isin(
+    def _encode_sharing_ap(self, sharing_ap, sharing_station) -> Array:
+        arr1 = np.isin(
             np.asarray(self.access_points), 
             np.asarray(sharing_ap)
         ).astype(np.int32)
+        arr2 = np.zeros(self.stations_per_ap)
+        rel_index_of_sharing_station = (self.associations[sharing_ap] == sharing_station).argmax()
+        arr2[rel_index_of_sharing_station] = 1
 
+        return np.concatenate([arr1, arr2], axis=0)
     
     
     

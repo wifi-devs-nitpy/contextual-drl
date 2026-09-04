@@ -122,8 +122,9 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         # this means to update a specific agent with a reward I must know the last_step in which it took the action. 
 
         sharing_ap = np.random.choice(self.access_points).item()
+        sharing_sta = np.random.choice(self.associations[sharing_ap]).item()
 
-        context_lvl1 = self.encoded_sharing_ap(sharing_ap)
+        context_lvl1 = self.encoded_sharing_ap(sharing_ap, sharing_sta)
 
         find_groups_agent_action = self.find_groups_agent.sample(
                                 update_observations={
@@ -158,14 +159,15 @@ class HierarchicalMapcDQNAgent(MapcAgent):
                     'env_state': context_lvl2
                 }
             ).item()
-            for ap in selected_aps
+            for ap in selected_ap_group
         } 
         #index of ap is actual node index of ap , index of sta is relative index of sta in associations[ap]
-
         #update the last step, and last action 
         for ap, sta_idx in ap_sta_pairs.items():
             self.assign_stations_agent_last_step[ap] = self.step 
             self.assign_stations_agent_last_action[ap] = sta_idx
+        
+        ap_sta_pairs[sharing_ap] = (self.associations[sharing_ap] == sharing_sta).argmax().item()
 
         # encoding ap_sta_pairs a context for the level-3 
         context_lvl3 = self.encode_ap_stations_to_tx_vector(ap_sta_pairs)
