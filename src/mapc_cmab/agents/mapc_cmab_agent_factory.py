@@ -308,7 +308,7 @@ class MapcDQNAgentFactory:
         )
 
     def _encode_ap_stations_to_tx_vector(self, ap_sta_dict):
-        res = np.zeros(shape=(self.n_ap, self.n_sta))
+        res = np.zeros(shape=(self.n_ap, self.stations_per_ap))
         ap_to_idx = self.ap_to_idx
         rows = [ap_to_idx[ap] for ap in ap_sta_dict.keys()]
         cols = list(ap_sta_dict.values())
