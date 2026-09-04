@@ -238,5 +238,7 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         tx_matrices = np.array(list(link_ap_sta[r]["tx_matrix"] for r in range(0, self.n_links)), dtype=np.int16)
         tx_power_indices = np.array(list(link_ap_sta[r]["tx_power_indices"] for r in range(0, self.n_links)), dtype=np.int16)
 
+        print(f"tx_matrix: {np.where(tx_matrices == 1)}")
+        print(f"tx_power_indices: {tx_power_indices}")
 
         return (tx_matrices, tx_power_indices)
