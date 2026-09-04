@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "chex>=0.1.91",
     "gymnasium>=1.2.3",
     "reinforced-lib>=2.0.4",
     "tfp-nightly[jax]>=0.26.0.dev20260902",

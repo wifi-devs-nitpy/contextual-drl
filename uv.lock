@@ -1089,6 +1089,7 @@ name = "mapc-cmab"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "chex" },
     { name = "gymnasium" },
     { name = "reinforced-lib" },
     { name = "tfp-nightly", extra = ["jax"] },
@@ -1105,6 +1106,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "chex", specifier = ">=0.1.91" },
     { name = "gymnasium", specifier = ">=1.2.3" },
     { name = "reinforced-lib", specifier = ">=2.0.4" },
     { name = "tfp-nightly", extras = ["jax"], specifier = ">=0.26.0.dev20260902" },

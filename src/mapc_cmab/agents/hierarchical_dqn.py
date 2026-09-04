@@ -9,7 +9,7 @@ from reinforced_lib import RLib
 
 from mapc_cmab.agents.mapc_agent import MapcAgent
 
-class HierarchicalMapcAgent(MapcAgent):
+class HierarchicalMapcDQNAgent(MapcAgent):
     """
     The hierarchical MAB agent responsible for the selection of the AP and station pairs.
     The agent consists of three phases:
@@ -61,11 +61,12 @@ class HierarchicalMapcAgent(MapcAgent):
             ap_group_action_to_ap_group: Callable,
             link_comb_index_to_links: dict[int, list],
             sta_index_mapping: dict[int, int],
-            tx_matrix_shape: Shape,
+            n_links: int,
             tx_power_levels: int
         ):
 
         self.associations = self.associations
+        self.inv_associations = {sta: ap for ap in associations.keys() for sta in associations[ap]}
         self.find_groups_agent = find_groups_agent
         self.assign_stations_agent = assign_stations_agent
         self.assign_links_agent = assign_links_agent
@@ -73,6 +74,7 @@ class HierarchicalMapcAgent(MapcAgent):
         self.ap_group_action_to_ap_group = ap_group_action_to_ap_group
         self.link_comb_index_to_links = link_comb_index_to_links
         self.sta_index_mapping = sta_index_mapping
+        self.n_links = n_links
 
         self.encoded_sharing_ap = encode_sharing_ap
         self.encode_ap_group = encode_ap_group 
@@ -92,14 +94,14 @@ class HierarchicalMapcAgent(MapcAgent):
         self.assign_links_agent_last_action = defaultdict(int)
 
         self.assign_tx_power_agent_last_step = defaultdict(int)
-        self.assign_tx_power_agent_last_acttion = defaultdict(int)
+        self.assign_tx_power_agent_last_action = defaultdict(int)
                         
         self.step = 0
         self.rewards = [] 
 
         self.associations = {ap: np.array(stations) for ap, stations in associations.items()}
         self.access_points = np.asarray(list(associations.keys()))
-        self.stations = np.asarray(list(chain.from_iterable(associations.values)))
+        self.stations = np.asarray(list(chain.from_iterable(associations.values())))
         self.n_nodes = len(self.access_points) + len(list(chain.from_iterable(associations.values())))
 
 
@@ -114,7 +116,7 @@ class HierarchicalMapcAgent(MapcAgent):
         """
 
         self.step += 1
-        self.reward.append(reward)
+        self.rewards.append(reward)
 
         # loop invariant 
         # everytime the reward is appended, it gets into the index == (step-1)
@@ -162,7 +164,7 @@ class HierarchicalMapcAgent(MapcAgent):
         #index of ap is actual node index of ap , index of sta is relative index of sta in associations[ap]
 
         #update the last step, and last action 
-        for ap, sta_idx in ap_sta_pairs.values():
+        for ap, sta_idx in ap_sta_pairs.items():
             self.assign_stations_agent_last_step[ap] = self.step 
             self.assign_stations_agent_last_action[ap] = sta_idx
 
@@ -185,14 +187,14 @@ class HierarchicalMapcAgent(MapcAgent):
                 }
         
         #update the last step, and last action 
-        for ap, link_idx in ap_sta_links.values():
+        for ap, link_idx in ap_sta_links.items():
             self.assign_links_agent_last_step[ap] = self.step 
             self.assign_links_agent_last_action[ap] = link_idx
 
 
         # converting ap_sta_links to sta_links 
         sta_link_indices = {}
-        for ap, link_idx in ap_sta_links.values():
+        for ap, link_idx in ap_sta_links.items():
             sta_selected_rel_index = ap_sta_pairs[ap]
             sta_index = self.associations[ap][sta_selected_rel_index]
             sta_link_indices[sta_index] = link_idx 
@@ -202,10 +204,38 @@ class HierarchicalMapcAgent(MapcAgent):
 
         sta_links = {
             sta: self.link_comb_index_to_links[link_index]
-
             for sta, link_index in sta_link_indices.items()
         }
 
+        link_ap_sta = {
+            link: {
+                "tx_matrix": np.zeros((self.n_nodes, self.n_nodes)), 
+                "tx_power_indices": np.zeros(self.n_nodes, dtype=np.int32) 
+            }
+            for link in range(self.n_links)
+        }
         
+        # sampling the tx_power for the 
+        for sta, links in sta_links.items():
+            for link in links: 
+                tx_power_index = self.assign_tx_power_agent[sta, link].sample(
+                    update_observations = {
+                            'env_state': context_lvl4, 
+                            'action': self.assign_tx_power_agent_last_action[sta, link],
+                            'reward': self.rewards[self.assign_tx_power_agent_last_step[sta, link]], 
+                            'terminal': False
+                        }, 
+                        sample_observations={
+                            'env_sta': context_lvl4
+                        }
+                )
+                link_ap_sta[link]["tx_matrix"][self.inv_associations[sta], sta] = 1
+                link_ap_sta[link]["tx_power_indices"][self.inv_associations[sta]] = tx_power_index
+                self.assign_tx_power_agent_last_action[sta, link] = tx_power_index
+                self.assign_tx_power_agent_last_step[sta, link] = self.step 
 
-        
+        tx_matrices = np.array(list(link_ap_sta[r]["tx_matrix"] for r in range(0, self.n_links)), dtype=np.int16)
+        tx_power_indices = np.array(list(link_ap_sta[r]["tx_power_indices"] for r in range(0, self.n_links)), dtype=np.int16)
+
+
+        return (tx_matrices, tx_power_indices)

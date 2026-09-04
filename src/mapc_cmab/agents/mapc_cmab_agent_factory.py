@@ -8,7 +8,7 @@ from reinforced_lib import RLib
 from reinforced_lib.agents.deep import DQN
 
 from mapc_cmab.agents.mapc_agent import MapcAgent
-
+from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
 from mapc_cmab.agents.q_network import QNetwork_lv1, QNetwork_lv2, QNetwork_lv3, QNetwork_lv4
 import optax 
 from chex import Array 
@@ -63,7 +63,7 @@ class MapcDQNAgentFactory:
         self.seed = seed
 
 
-        np.random.seed()
+        np.random.seed(self.seed)
 
         self.inv_associations = {sta: ap for ap in associations.keys() for sta in associations[ap]}
         self.access_points = list(associations.keys())
@@ -78,7 +78,10 @@ class MapcDQNAgentFactory:
 
             for idx, link_comb in enumerate(self._powerset_without_emptyset(range(self.n_links)))
         }
-
+        self.sta_index_mapping = {
+            sta: index
+            for index, sta in enumerate(self.stations)
+        }
     def create_hierarchical_DQN_cmapc_agent(self) -> MapcAgent: 
         """
         Intialises the Hierarchical DQN Agent 
@@ -97,7 +100,7 @@ class MapcDQNAgentFactory:
             agent_params = {
                 "q_network": QNetwork_lv2(n_actions=action_size_lvl1), 
 
-                "obs_space_shape": (2, 4), # sharing AP, and its station in encoded format  
+                "obs_space_shape": (self.n_ap, ), # sharing AP, and its station in encoded format  
                 "act_space_size": action_size_lvl1, 
 
                 "optimizer": optax.adam(1e-3), 
@@ -154,7 +157,7 @@ class MapcDQNAgentFactory:
         ## context -> 1) AP group 2) stations assigned to them 
         ## context is encoded as tx matrix 
         ## aps, stas are index as coded into the their respective indices domain
-
+        action_size_lvl3 = (2**self.n_links - 1)
         assign_links_agent = {
             ap: RLib(
                 agent_type=DQN,
@@ -163,7 +166,7 @@ class MapcDQNAgentFactory:
                     "q_network": QNetwork_lv3(n_actions=self.n_links), 
 
                     "obs_space_shape": (self.n_ap, self.stations_per_ap),  
-                    "act_space_size": len(self.n_links), 
+                    "act_space_size": action_size_lvl3, 
 
                     "optimizer": optax.adam(1e-3), 
 
@@ -217,6 +220,24 @@ class MapcDQNAgentFactory:
                 )
             for sta, link in sta_link
         }
+
+
+        return HierarchicalMapcDQNAgent(
+            associations=self.associations,
+            find_groups_agent=find_groups_agent,
+            assign_stations_agent=assign_stations_agent,
+            assign_links_agent=assign_links_agent,
+            assign_tx_power_agent=assign_tx_power_agent,
+            encode_sharing_ap=self._encode_sharing_ap,
+            encode_ap_group=self._encode_ap_group,
+            encode_ap_stations_to_tx_vector=self._encode_ap_stations_to_tx_vector,
+            encode_sta_links_vector=self._encode_sta_links_vector,
+            ap_group_action_to_ap_group=self._ap_group_action_to_ap_group,
+            link_comb_index_to_links=self.link_comb_index_to_links,
+            sta_index_mapping=self.sta_index_mapping,
+            n_links=self.n_links,
+            tx_power_levels=self.tx_power_levels,
+        )
 
 
     @staticmethod
@@ -315,13 +336,16 @@ class MapcDQNAgentFactory:
         res[rows, cols] = 1
         return res
     
-    def _encode_sta_links_vector(self, sta_links: dict[int, list[int]]):
+    def _encode_sta_links_vector(self, sta_links: dict[int, int]):
         res = np.zeros((self.n_sta, self.n_links))
-        
+
+        sta_index_mapping = self.sta_index_mapping
         # Unpack into matching row/column indices for bulk assignment
-        rows = [sta for sta, idx in sta_links.items() for _ in self.link_comb_index_to_links[idx]]
-        cols = [link for idx in sta_links.values() for link in self.link_comb_index_to_links[idx]]
-        
+        rows = [sta_index_mapping[sta] for sta, idx in sta_links.items()
+                for _ in self.link_comb_index_to_links[idx]]
+        cols = [link for idx in sta_links.values()
+                for link in self.link_comb_index_to_links[idx]]
+
         res[rows, cols] = 1
         return res
     
