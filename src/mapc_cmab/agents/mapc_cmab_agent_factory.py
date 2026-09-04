@@ -314,7 +314,6 @@ class MapcDQNAgentFactory:
         cols = list(ap_sta_dict.values())
         res[rows, cols] = 1
         return res
-
     
     def _encode_sta_links_vector(self, sta_links: dict[int, list[int]]):
         res = np.zeros((self.n_sta, self.n_links))
@@ -325,6 +324,13 @@ class MapcDQNAgentFactory:
         
         res[rows, cols] = 1
         return res
+    
+    def _encode_sharing_ap(self, sharing_ap) -> Array:
+        return np.isin(
+            np.asarray(self.access_points), 
+            np.asarray(sharing_ap)
+        ).astype(np.int32)
 
     
-
+    
+    

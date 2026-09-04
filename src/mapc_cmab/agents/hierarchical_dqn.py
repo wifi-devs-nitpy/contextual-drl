@@ -39,7 +39,8 @@ class HierarchicalMapcAgent(MapcAgent):
     encode_ap_group: Callable 
         The function which encodes the selected ap group for the level-2 agents as a context.  
     encode_ap_stations_to_tx_vector: Callable 
-        The function which encodes the ap_stations in to min tx_vector for the level-3 agents as a context.
+        The function which encodes the ap_stations in to mi
+        n tx_vector for the level-3 agents as a context.
     encode_sta_links_vector: Callable
         The function that encodes the output of the thrid level agent as a context for the level-4 agent 
     tx_matrix_shape : Shape
@@ -53,10 +54,14 @@ class HierarchicalMapcAgent(MapcAgent):
             assign_stations_agent: dict[int, RLib], 
             assign_links_agent: dict[int, RLib], 
             assign_tx_power_agent: dict[tuple[int, int], RLib],
+            encode_sharing_ap: Callable,
             encode_ap_group: Callable, 
             encode_ap_stations_to_tx_vector: Callable, 
             encode_sta_links_vector: Callable, 
-            tx_matrix_shape: Shape, 
+            ap_group_action_to_ap_group: Callable,
+            link_comb_index_to_links: dict[int, list],
+            sta_index_mapping: dict[int, int],
+            tx_matrix_shape: Shape,
             tx_power_levels: int
         ):
 
@@ -65,7 +70,11 @@ class HierarchicalMapcAgent(MapcAgent):
         self.assign_stations_agent = assign_stations_agent
         self.assign_links_agent = assign_links_agent
         self.assign_tx_power_agent = assign_tx_power_agent 
+        self.ap_group_action_to_ap_group = ap_group_action_to_ap_group
+        self.link_comb_index_to_links = link_comb_index_to_links
+        self.sta_index_mapping = sta_index_mapping
 
+        self.encoded_sharing_ap = encode_sharing_ap
         self.encode_ap_group = encode_ap_group 
         self.encode_ap_stations_to_tx_vector = encode_ap_stations_to_tx_vector 
         self.encode_sta_links_vector = encode_sta_links_vector
@@ -73,8 +82,26 @@ class HierarchicalMapcAgent(MapcAgent):
         self.tx_matrix_shape = tx_matrix_shape
         self.tx_power_levels = tx_power_levels 
 
+        self.find_groups_agent_last_step = 0
+        self.find_groups_agent_last_action = 0 
+
+        self.assign_stations_agent_last_step = defaultdict(int)
+        self.assign_stations_agent_last_action = defaultdict(int)
+
+        self.assign_links_agent_last_step = defaultdict(int)
+        self.assign_links_agent_last_action = defaultdict(int)
+
+        self.assign_tx_power_agent_last_step = defaultdict(int)
+        self.assign_tx_power_agent_last_acttion = defaultdict(int)
+                        
         self.step = 0
         self.rewards = [] 
+
+        self.associations = {ap: np.array(stations) for ap, stations in associations.items()}
+        self.access_points = np.asarray(list(associations.keys()))
+        self.stations = np.asarray(list(chain.from_iterable(associations.values)))
+        self.n_nodes = len(self.access_points) + len(list(chain.from_iterable(associations.values())))
+
 
     def sample(self, reward) -> tuple[Array, Array]: 
         """ 
@@ -93,6 +120,92 @@ class HierarchicalMapcAgent(MapcAgent):
         # everytime the reward is appended, it gets into the index == (step-1)
         # this means to update a specific agent with a reward I must know the last_step in which it took the action. 
 
+        sharing_ap = np.random.choice(self.access_points).item()
+
+        context_lvl1 = self.encoded_sharing_ap(sharing_ap)
+
+        find_groups_agent_action = self.find_groups_agent.sample(
+                                update_observations={
+                                    'env_state': context_lvl1, 
+                                    'action': self.find_groups_agent_last_action,
+                                    'reward': self.rewards[self.find_groups_agent_last_step], 
+                                    'terminal': False
+                                }, 
+                                sample_observations={
+                                    "env_state": context_lvl1
+                                }
+                        )
+
+        self.find_groups_agent_last_action = find_groups_agent_action 
+        self.find_groups_agent_last_step = self.step 
+        
+        selected_ap_group = self.ap_group_action_to_ap_group(ap_group_action=find_groups_agent_action, sharing_ap=sharing_ap)
+
+        # encoding the context for the level-2 
+        context_lvl2 = self.encode_ap_group(sharing_ap=sharing_ap, selected_ap_group=selected_ap_group)
+        selected_aps = self.access_points[context_lvl2.astype(bool)]
+
+        ap_sta_pairs = {
+            int(ap): self.assign_stations_agent[ap].sample(
+                update_observations={
+                    'env_state': context_lvl2, 
+                    'action': self.assign_stations_agent_last_action[ap],
+                    'reward': self.rewards[self.assign_stations_agent_last_step[ap]], 
+                    'terminal': False
+                }, 
+                sample_observations={
+                    'env_sta': context_lvl2
+                }
+            )
+            for ap in selected_aps
+        } 
+        #index of ap is actual node index of ap , index of sta is relative index of sta in associations[ap]
+
+        #update the last step, and last action 
+        for ap, sta_idx in ap_sta_pairs.values():
+            self.assign_stations_agent_last_step[ap] = self.step 
+            self.assign_stations_agent_last_action[ap] = sta_idx
+
+        # encoding ap_sta_pairs a context for the level-3 
+        context_lvl3 = self.encode_ap_stations_to_tx_vector(ap_sta_pairs)
+
+        ap_sta_links = {
+                    int(ap): self.assign_links_agent[ap].sample(
+                        update_observations={
+                            'env_state': context_lvl3, 
+                            'action': self.assign_links_agent_last_action[ap],
+                            'reward': self.rewards[self.assign_links_agent_last_step[ap]], 
+                            'terminal': False
+                        }, 
+                        sample_observations={
+                            'env_sta': context_lvl3
+                        }
+                    )
+                    for ap in selected_aps
+                }
+        
+        #update the last step, and last action 
+        for ap, link_idx in ap_sta_links.values():
+            self.assign_links_agent_last_step[ap] = self.step 
+            self.assign_links_agent_last_action[ap] = link_idx
+
+
+        # converting ap_sta_links to sta_links 
+        sta_link_indices = {}
+        for ap, link_idx in ap_sta_links.values():
+            sta_selected_rel_index = ap_sta_pairs[ap]
+            sta_index = self.associations[ap][sta_selected_rel_index]
+            sta_link_indices[sta_index] = link_idx 
+
+        # encoding it into a context vector for the level-4 
+        context_lvl4 = self.encode_sta_links_vector(sta_link_indices)
+
+        sta_links = {
+            sta: self.link_comb_index_to_links[link_index]
+
+            for sta, link_index in sta_link_indices.items()
+        }
+
         
 
-
+        
