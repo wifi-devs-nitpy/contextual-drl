@@ -62,7 +62,8 @@ class HierarchicalMapcDQNAgent(MapcAgent):
             link_comb_index_to_links: dict[int, list],
             sta_index_mapping: dict[int, int],
             n_links: int,
-            n_tx_power_levels: int
+            n_tx_power_levels: int,
+            logger=None
         ):
 
         self.associations = associations
@@ -75,6 +76,7 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         self.link_comb_index_to_links = link_comb_index_to_links
         self.sta_index_mapping = sta_index_mapping
         self.n_links = n_links
+        self.logger = logger 
 
         self.encoded_sharing_ap = encode_sharing_ap
         self.encode_ap_group = encode_ap_group 
@@ -102,7 +104,6 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         self.access_points = np.asarray(list(associations.keys()))
         self.stations = np.asarray(list(chain.from_iterable(associations.values())))
         self.n_nodes = len(self.access_points) + len(list(chain.from_iterable(associations.values())))
-
 
     def sample(self, reward) -> tuple[Array, Array]: 
         """ 
@@ -238,7 +239,15 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         tx_matrices = np.array(list(link_ap_sta[r]["tx_matrix"] for r in range(0, self.n_links)), dtype=np.int16)
         tx_power_indices = np.array(list(link_ap_sta[r]["tx_power_indices"] for r in range(0, self.n_links)), dtype=np.int16)
 
-        print(f"tx_matrix: {np.where(tx_matrices == 1)}")
-        print(f"tx_power_indices: {tx_power_indices}")
-
+        if self.logger is not None: 
+            # print(f"tx_matrix: {np.where(tx_matrices == 1)}")
+            # print(f"tx_power_indices: {tx_power_indices}")       
+            self.logger.log(
+                step=self.step,
+                tx_matrices=tx_matrices,
+                tx_power_indices=tx_power_indices,
+                reward=self.rewards[-1], # reward is 1 step delayed. 
+            )
+            return tx_matrices, tx_power_indices
+        
         return (tx_matrices, tx_power_indices)

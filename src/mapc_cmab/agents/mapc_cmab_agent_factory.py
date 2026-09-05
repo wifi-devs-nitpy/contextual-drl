@@ -48,6 +48,7 @@ class MapcDQNAgentFactory:
             n_links: int = 3,
             n_tx_power_levels: int = 4, 
             seed: int = 42, 
+            logger = None
     ):
         self.associations = {ap: np.asarray(stations) for ap, stations in associations.items()}
         self.agent_params_lvl1 = agent_params_lvl1
@@ -57,6 +58,7 @@ class MapcDQNAgentFactory:
         self.n_tx_power_levels = n_tx_power_levels
         self.n_links = n_links
         self.seed = seed
+        self.logger = logger
 
 
         np.random.seed(self.seed)
@@ -78,7 +80,7 @@ class MapcDQNAgentFactory:
             sta: index
             for index, sta in enumerate(self.stations)
         }
-    def create_hierarchical_DQN_cmapc_agent(self) -> MapcAgent: 
+    def create_hierarchical_DQN_cmapc_agent(self, logger) -> MapcAgent: 
         self.seed += 1
         np.random.seed(self.seed)
         """
@@ -235,6 +237,7 @@ class MapcDQNAgentFactory:
             sta_index_mapping=self.sta_index_mapping,
             n_links=self.n_links,
             n_tx_power_levels=self.n_tx_power_levels,
+            logger=logger
         )
 
 
