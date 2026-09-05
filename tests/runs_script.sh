@@ -1,4 +1,5 @@
 export PYTHONUNBUFFERED=true
+set -eu
 
 echo "Script execution started at - $(date) -"
 
