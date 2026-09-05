@@ -182,3 +182,6 @@ pdfs
 ## jax cache 
 jax_cache
 **/*.np*
+
+#json files 
+**/*.json
