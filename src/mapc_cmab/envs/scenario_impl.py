@@ -231,6 +231,8 @@ def residential_scenario(
         size: Scalar = 10,
         n_steps: int = float('inf'),
         channel_width: int = None,
+        n_links=3, 
+        n_tx_power_levels=4,
         **kwargs
 ) -> StaticScenario:
     """
@@ -288,6 +290,8 @@ def residential_scenario(
         walls_pos=jnp.array(walls_pos),
         str_repr=str_repr,
         channel_width=channel_width,
+        n_links=n_links,
+        n_tx_power_levels=n_tx_power_levels, 
         **kwargs
     )
 
