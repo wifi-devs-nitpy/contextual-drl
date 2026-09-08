@@ -8,12 +8,11 @@ from reinforced_lib import RLib
 from reinforced_lib.agents import BaseAgent
 from reinforced_lib.exts import BasicMab
 
-from mapc_cmab.agents.flat_mapc_agent import FlatMapcAgent
-from mapc_cmab.agents.hierarchical_mapc_agent import HierarchicalMapcAgent
+from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgent
 from mapc_cmab.agents.mapc_agent import MapcAgent
 
 
-class MapcAgentFactory:
+class MapcMABAgentFactory:
     """
     The factory which creates the MAPC agent with the given agent type and parameters.
 
@@ -33,7 +32,7 @@ class MapcAgentFactory:
         The parameters of the Fourth level agent.
     hierarchical : bool
         The flag indicating whether the hierarchical or flat MAPC agent should be created.
-    tx_power_levels : int
+    n_tx_power_levels : int
         The number of transmission power levels.
     seed : int
         The seed for the random number generator.
@@ -48,7 +47,7 @@ class MapcAgentFactory:
             agent_params_lvl3: dict,
             agent_params_lvl4: dict,
             hierarchical: bool = True,
-            tx_power_levels: int = 4,
+            n_tx_power_levels: int = 4,
             n_links: int = 3,
             seed: int = 42
     ) -> None:
@@ -59,7 +58,7 @@ class MapcAgentFactory:
         self.agent_params_lvl3 = agent_params_lvl3
         self.agent_params_lvl4 = agent_params_lvl4
         self.hierarchical = hierarchical
-        self.tx_power_levels = tx_power_levels
+        self.n_tx_power_levels = n_tx_power_levels
         self.n_links = n_links
         self.seed = seed
 
@@ -88,7 +87,7 @@ class MapcAgentFactory:
         else:
             return self.create_flat_mapc_agent()
 
-    def create_hierarchical_mapc_agent(self) -> MapcAgent:
+    def create_hierarchical_mapc_agent(self, logger) -> MapcAgent:
         """
         Initializes the hierarchical MAPC agent.
 
@@ -156,7 +155,7 @@ class MapcAgentFactory:
                 agent_type=self.agent_type,
                 agent_params=self.agent_params_lvl4.copy(),
                 ext_type=BasicMab,
-                ext_params={'n_arms': self.tx_power_levels}
+                ext_params={'n_arms': self.n_tx_power_levels}
             ) for link in range(self.n_links)
         }
 
@@ -173,7 +172,7 @@ class MapcAgentFactory:
                     self.seed += 1
 
 
-        return HierarchicalMapcAgent(
+        return HierarchicalMABMapcAgent(
             associations=self.associations,
             find_groups_agent=find_groups,
             find_groups_dict=find_groups_dict,
@@ -187,38 +186,10 @@ class MapcAgentFactory:
             sta_group_action_to_sta_group=self._sta_group_action_to_sta_group,
             link_action_to_links_group=self._assign_links_agent_action_to_links_group,
             tx_matrix_shape=(self.n_nodes, self.n_nodes),
-            tx_power_levels=self.tx_power_levels
+            n_tx_power_levels=self.n_tx_power_levels,
+            logger=logger
         )
 
-    def create_flat_mapc_agent(self) -> MapcAgent:
-        """
-        Initializes the flat MAPC agent.
-
-        Returns
-        -------
-        FlatMapcAgent
-            The flat MAPC agent.
-        """
-
-        agents = {
-            sta: RLib(
-                agent_type=self.agent_type,
-                agent_params=self.agent_params_lvl1.copy(),
-                ext_type=BasicMab,
-                ext_params={'n_arms': sum(map(lambda x: x[1], self._list_pairs_num(sta)))}
-            ) for sta in self.stations
-        }
-
-        for agent in agents.values():
-            agent.init(self.seed)
-            self.seed += 1
-
-        return FlatMapcAgent(
-            associations=self.associations,
-            agents=agents,
-            agent_action_to_pairs=self._agent_action_to_pairs,
-            tx_matrix_shape=(self.n_nodes, self.n_nodes)
-        )
 
     @staticmethod
     def _iter_tx(associations: dict) -> Iterable:
@@ -344,7 +315,7 @@ class MapcAgentFactory:
         associations.pop(self.inv_associations[designated_station])
 
         for conf in self._iter_tx(associations):
-            yield conf, self.tx_power_levels ** (len(conf) + 1)
+            yield conf, self.n_tx_power_levels ** (len(conf) + 1)
 
     def _agent_action_to_pairs(self, designated_station: int, action: int) -> tuple[tuple, list]:
         """
@@ -375,8 +346,8 @@ class MapcAgentFactory:
         tx_power = np.zeros(self.n_nodes, dtype=int)
 
         for ap, _ in conf:
-            tx_power[ap] = action % self.tx_power_levels
-            action //= self.tx_power_levels
+            tx_power[ap] = action % self.n_tx_power_levels
+            action //= self.n_tx_power_levels
 
         sharing_ap = self.inv_associations[designated_station]
         tx_power[sharing_ap] = action

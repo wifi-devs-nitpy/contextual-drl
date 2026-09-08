@@ -59,7 +59,9 @@ class StaticScenario(Scenario):
             channel_width: int = None,
             tx_power_delta: Scalar = 3.0,
             path_loss_fn: Callable = default_path_loss,
-            str_repr: str = ""
+            str_repr: str = "", 
+            n_links=3,
+            n_tx_power_levels = 4
     ) -> None:
         self.str_repr = "static_" + str_repr if str_repr else "static"
         super().__init__(associations, pos, walls, walls_pos, channel_width, path_loss_fn, self.str_repr)
@@ -70,13 +72,15 @@ class StaticScenario(Scenario):
         self.n_steps = n_steps
         self.sigma = sigma
         self.nakagami_m = nakagami_m
+        self.n_tx_power_levels = n_tx_power_levels
 
         self.data_rate_fn = partial(
             network_data_rate_mlo,
             pos=self.pos,
             sigma=self.sigma,
             walls=self.walls,
-            n_tx_power_levels = 4
+            n_links=n_links,
+            n_tx_power_levels = n_tx_power_levels
         )
         self.normalize_reward = DATA_RATES[self.channel_width][-1].item()
 
