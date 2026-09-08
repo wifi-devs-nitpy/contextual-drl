@@ -17,6 +17,7 @@ def network_data_rate_mlo(
         # key: jax.random.PRNGKey, 
         # pos, 
         # walls, 
+        n_links = 3, 
         n_tx_power_levels = 4, 
     ):
 
