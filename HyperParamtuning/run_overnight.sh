@@ -11,6 +11,12 @@ STAMP="$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="${OUTPUT_DIR}/overnight_${STAMP}.log"
 STATUS_FILE="${OUTPUT_DIR}/overnight_${STAMP}.status"
 
+source "C:/Users/jomon/Documents/wifi_9/mapc-cmab/HyperParamtuning/exports.sh"
+echo "cheking for the exported variables"
+echo "$SMTP_USER"
+echo "$SMTP_PASSWORD"
+echo "$EMAIL_TO"
+
 cd "${PROJECT_DIR}"
 
 exec > >(tee -a "${LOG_FILE}") 2>&1
