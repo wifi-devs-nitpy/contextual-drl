@@ -1,65 +1,21 @@
-from flax import linen as nn 
-import optax 
-from chex import Array 
+from flax import linen as nn
+from chex import Array
 
 
-class QNetwork_lv1(nn.Module):
-    n_actions: int = 5 
-
-    @nn.compact
-    def __call__(self, x: Array) -> Array: 
-
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
-
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
-
-        q_values = nn.Dense(self.n_actions)(x)
-        return q_values
-
-class QNetwork_lv2(nn.Module):
-    n_actions: int = 5 
+class QNetwork(nn.Module):
+    n_actions: int
+    hidden_dims: tuple[int, ...] = (64, 64)
+    use_layer_norm: bool = False
 
     @nn.compact
-    def __call__(self, x: Array) -> Array: 
+    def __call__(self, x: Array) -> Array:
 
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
+        for hidden_dim in self.hidden_dims:
+            x = nn.Dense(hidden_dim)(x)
 
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
+            if self.use_layer_norm:
+                x = nn.LayerNorm()(x)
 
-        q_values = nn.Dense(self.n_actions)(x)
-        return q_values
+            x = nn.relu(x)
 
-class QNetwork_lv3(nn.Module):
-    n_actions: int = 5 
-
-    @nn.compact
-    def __call__(self, x: Array) -> Array: 
-
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
-
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
-
-        q_values = nn.Dense(self.n_actions)(x)
-        return q_values
-
-class QNetwork_lv4(nn.Module):
-    n_actions: int = 5 
-
-    @nn.compact
-    def __call__(self, x: Array) -> Array: 
-
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
-
-        x = nn.Dense(64)(x)
-        x = nn.relu(x)
-
-        q_values = nn.Dense(self.n_actions)(x)
-        return q_values
-
+        return nn.Dense(self.n_actions)(x)

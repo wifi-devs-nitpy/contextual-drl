@@ -9,7 +9,7 @@ from reinforced_lib.agents.deep import DQN
 
 from mapc_cmab.agents.mapc_agent import MapcAgent
 from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
-from mapc_cmab.agents.q_network import QNetwork_lv1, QNetwork_lv2, QNetwork_lv3, QNetwork_lv4
+from mapc_cmab.agents.q_network import QNetwork
 import optax 
 from chex import Array 
 
@@ -98,12 +98,15 @@ class MapcDQNAgentFactory:
             agent_type=DQN,
 
             agent_params = {
-                "q_network": QNetwork_lv2(n_actions=action_size_lvl1), 
+                "q_network": QNetwork(
+                    n_actions=action_size_lvl1,
+                    hidden_dims=(64, 64),
+                ), 
 
                 "obs_space_shape": (self.n_ap + self.stations_per_ap), # sharing AP, and its station in encoded format  
                 "act_space_size": action_size_lvl1, 
 
-                "optimizer": optax.adam(1e-3), 
+                "optimizer": optax.adam(7e-4), 
 
                 "experience_replay_buffer_size": 1000,
                 "experience_replay_batch_size": 32,
@@ -115,6 +118,7 @@ class MapcDQNAgentFactory:
                 "epsilon": 1.0, 
                 "epsilon_decay": 0.995,
                 "epsilon_min": 0.05,
+                **self.agent_params_lvl1
             },
             no_ext_mode=True,
         )
@@ -128,12 +132,15 @@ class MapcDQNAgentFactory:
                 agent_type=DQN,
 
                 agent_params = {
-                    "q_network": QNetwork_lv1(n_actions=len(self.associations[ap])), 
+                    "q_network": QNetwork(
+                        n_actions=len(self.associations[ap]),
+                        hidden_dims=(128, 64),
+                    ),
 
                     "obs_space_shape": (self.n_ap, ),  
                     "act_space_size": len(self.associations[ap]), 
 
-                    "optimizer": optax.adam(1e-3), 
+                    "optimizer": optax.adam(7e-4), 
 
                     "experience_replay_buffer_size": 1000,
                     "experience_replay_batch_size": 32,
@@ -145,6 +152,7 @@ class MapcDQNAgentFactory:
                     "epsilon": 1.0, 
                     "epsilon_decay": 0.995,
                     "epsilon_min": 0.05,
+                    **self.agent_params_lvl2
                 },
                 no_ext_mode=True,
             )
@@ -163,12 +171,15 @@ class MapcDQNAgentFactory:
                 agent_type=DQN,
 
                 agent_params = {
-                    "q_network": QNetwork_lv3(n_actions=action_size_lvl3), 
+                    "q_network": QNetwork(
+                        n_actions=action_size_lvl3,
+                        hidden_dims=(128, 128),
+                    ),
 
                     "obs_space_shape": (self.n_ap * self.stations_per_ap),  
                     "act_space_size": action_size_lvl3, 
 
-                    "optimizer": optax.adam(1e-3), 
+                    "optimizer": optax.adam(7e-4), 
 
                     "experience_replay_buffer_size": 1000,
                     "experience_replay_batch_size": 32,
@@ -180,6 +191,7 @@ class MapcDQNAgentFactory:
                     "epsilon": 1.0, 
                     "epsilon_decay": 0.9995,
                     "epsilon_min": 0.05,
+                    **self.agent_params_lvl3
                 },
                 no_ext_mode=True,
             )
@@ -198,12 +210,15 @@ class MapcDQNAgentFactory:
                     agent_type=DQN,
     
                     agent_params = {
-                        "q_network": QNetwork_lv1(n_actions=self.n_tx_power_levels), 
+                        "q_network": QNetwork(
+                            n_actions=self.n_tx_power_levels,
+                            hidden_dims=(128, 64),
+                        ),
     
                         "obs_space_shape": (self.n_sta * self.n_links),  
                         "act_space_size": self.n_tx_power_levels, 
     
-                        "optimizer": optax.adam(1e-3), 
+                        "optimizer": optax.adam(7e-4), 
     
                         "experience_replay_buffer_size": 1000,
                         "experience_replay_batch_size": 32,
@@ -215,6 +230,7 @@ class MapcDQNAgentFactory:
                         "epsilon": 1.0, 
                         "epsilon_decay": 0.995,
                         "epsilon_min": 0.05,
+                        **self.agent_params_lvl4
                     },
                     no_ext_mode=True,
                 )
