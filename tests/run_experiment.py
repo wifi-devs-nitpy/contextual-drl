@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import optax 
 
 import jax
 import numpy as np
@@ -22,9 +23,9 @@ def parse_args():
                         help="AP-to-AP distance used by the scenario.")
     parser.add_argument("--d-sta", type=float, default=2.0,
                         help="Station distance used by the scenario.")
-    parser.add_argument("--n-runs", type=int, default=10,
+    parser.add_argument("--n-runs", type=int, default=40,
                         help="Number of independent runs.")
-    parser.add_argument("--n-steps", type=int, default=5000,
+    parser.add_argument("--n-steps", type=int, default=10_000,
                         help="Number of simulation steps per run.")
     parser.add_argument("--n-links", type=int, default=3,
                         help="Number of available links.")
@@ -48,13 +49,42 @@ def parse_args():
     return parser.parse_args()
 
 
+common_params = {
+    "optimizer": optax.adam(7e-4),
+    "experience_replay_buffer_size": 5000,
+    "experience_replay_batch_size": 64,
+    "experience_replay_steps": 1,
+    "epsilon_min": 0.05,
+}
+
+agent_params_lvl1 = {
+    **common_params,
+    "epsilon_decay": 0.995,
+}
+
+agent_params_lvl2 = {
+    **common_params,
+    "epsilon_decay": 0.995,
+}
+
+agent_params_lvl3 = {
+    **common_params,
+    "epsilon_decay": 0.999,
+}
+
+agent_params_lvl4 = {
+    **common_params,
+    "epsilon_decay": 0.995,
+}
+
+
 def create_agent_factory(scenario, args):
     return MapcDQNAgentFactory(
         associations=scenario.associations,
-        agent_params_lvl1=None,
-        agent_params_lvl2=None,
-        agent_params_lvl3=None,
-        agent_params_lvl4=None,
+        agent_params_lvl1=agent_params_lvl1,
+        agent_params_lvl2=agent_params_lvl2,
+        agent_params_lvl3=agent_params_lvl3,
+        agent_params_lvl4=agent_params_lvl4,
         n_tx_power_levels=args.n_tx_power_levels,
         n_links=args.n_links,
         seed=args.seed,
