@@ -1,6 +1,5 @@
 import argparse
 from pathlib import Path
-import optax 
 
 import jax
 import numpy as np
@@ -8,11 +7,40 @@ import matplotlib.pyplot as plt
 from scipy.stats import t
 from tqdm import tqdm
 
-from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
-from mapc_cmab.agents.mapc_cmab_agent_factory import MapcDQNAgentFactory
-from mapc_cmab.envs.scenario_impl import small_office_scenario, residential_scenario
+from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgent
+from reinforced_lib.agents.mab  import UCB
+from mapc_cmab.agents.mapc_hmab_agent_factory import MapcMABAgentFactory
+from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario
 from mapc_cmab.loggers.action_reward_logger import Logger 
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
+
+
+d_ap = 10
+n_steps = 10_000
+
+class MixScen:
+    def __init__(self, scenario_factory, d_sta_1: int, d_sta_2: int,  d_ap=d_ap, max_steps: int = n_steps):
+        self.scen1 = scenario_factory(d_ap=d_ap, d_sta=d_sta_1)
+        self.scen2 = scenario_factory(d_ap=d_ap, d_sta=d_sta_2)
+        self.step = 0
+        self.switch_steps = max_steps // 2
+        self.data_rate_fn1 = jax.jit(self.scen1.data_rate_fn)
+        self.data_rate_fn2 = jax.jit(self.scen2.data_rate_fn)
+        self.data_rate_fn = self.data_rate_fn1
+        self.associations = self.scen1.associations
+        self.str_repr = f"mix_scen_ap_{d_ap}_dsta_{d_sta_1}_{d_sta_2}_s{max_steps}"
+
+    def __call__(self, key, link_ap_sta):
+        self.step += 1
+        if self.step == self.switch_steps:
+            self.data_rate_fn = self.data_rate_fn2 if self.data_rate_fn is self.data_rate_fn1 else self.data_rate_fn1
+
+        return self.data_rate_fn(key, link_ap_sta=link_ap_sta)
+
+    def reset(self):
+        self.data_rate_fn = self.data_rate_fn1
+        self.step = 0
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -23,7 +51,7 @@ def parse_args():
                         help="AP-to-AP distance used by the scenario.")
     parser.add_argument("--d-sta", type=float, default=2.0,
                         help="Station distance used by the scenario.")
-    parser.add_argument("--n-runs", type=int, default=40,
+    parser.add_argument("--n-runs", type=int, default=10,
                         help="Number of independent runs.")
     parser.add_argument("--n-steps", type=int, default=10_000,
                         help="Number of simulation steps per run.")
@@ -49,69 +77,51 @@ def parse_args():
     return parser.parse_args()
 
 
-common_params = {
-    "optimizer": optax.adam(7e-4),
-    "experience_replay_buffer_size": 5000,
-    "experience_replay_batch_size": 64,
-    "experience_replay_steps": 1,
-    "epsilon_min": 0.05,
-}
-
-agent_params_lvl1 = {
-    **common_params,
-    "epsilon_decay": 0.995,
-}
-
-agent_params_lvl2 = {
-    **common_params,
-    "epsilon_decay": 0.995,
-}
-
-agent_params_lvl3 = {
-    **common_params,
-    "epsilon_decay": 0.999,
-}
-
-agent_params_lvl4 = {
-    **common_params,
-    "epsilon_decay": 0.995,
-}
-
-
 def create_agent_factory(scenario, args):
-    return MapcDQNAgentFactory(
-        associations=scenario.associations,
-        agent_params_lvl1=agent_params_lvl1,
-        agent_params_lvl2=agent_params_lvl2,
-        agent_params_lvl3=agent_params_lvl3,
-        agent_params_lvl4=agent_params_lvl4,
-        n_tx_power_levels=args.n_tx_power_levels,
-        n_links=args.n_links,
-        seed=args.seed,
-    )
+    return MapcMABAgentFactory(
+            associations=scenario.associations,
+            agent_type=UCB,
+            agent_params_lvl1={
+                "c": 95.0878460790544,
+                "gamma": 0.8768231620396211
+            },
+            agent_params_lvl2={
+                "c": 95.0878460790544,
+                "gamma": 0.8768231620396211
+            },
+            agent_params_lvl3={
+                "c": 2.08,
+                "gamma": 0.98,
+            },
+            agent_params_lvl4={
+                "c": 1.5,
+                "gamma": 0.99
+            },
+            n_tx_power_levels=args.n_tx_power_levels,
+            n_links=args.n_links,
+        )
 
 
 def run_single_experiment(agent_factory, scenario, run_number, n_steps, key):
-    logger = Logger(run_number=run_number, exp_name=scenario.str_repr)
-    agent = agent_factory.create_hierarchical_DQN_cmapc_agent(logger=logger)
-
+    # logger = Logger(run_number=run_number, exp_name=f"{scenario.str_repr}_HMAB_UCB")
+    agent = agent_factory.create_hierarchical_mapc_agent(logger=None)
     throughputs = np.zeros(n_steps, dtype=np.float32)
-    data_rate_fn = jax.jit(scenario.__call__)
     previous_throughput = 0.0
+
+    scenario.reset()
 
     for step in tqdm(range(1, n_steps), desc=f"run_number: {run_number}", leave=True):
         key, step_key = jax.random.split(key)
 
         tx_config = agent.sample(reward=previous_throughput)
 
-        # data_rate, _ = scenario(step_key, tx_config)
-        data_rate, _ = data_rate_fn(step_key, tx_config)
+        data_rate = scenario(step_key, tx_config)
         data_rate = float(data_rate)
 
         throughputs[step] = data_rate
         previous_throughput = data_rate
 
-    logger.save(directory=f"logs/{scenario.str_repr}")
+    # logger.save(directory=f"logs/{scenario.str_repr}")
 
     return throughputs
 
@@ -145,22 +155,34 @@ def main():
     # Enable all extra XLA caching features ("all")
     jax.config.update("jax_persistent_cache_enable_xla_caches", "all")
 
-    scenario = small_office_scenario(
-            d_ap=args.d_ap,
-            d_sta=args.d_sta,
-            n_tx_power_levels=args.n_tx_power_levels
-        )
+    
+
+    # scenario = small_office_scenario(
+    #     d_ap=args.d_ap,
+    #     d_sta=args.d_sta,
+    #     n_tx_power_levels=args.n_tx_power_levels
+    # )
+
+    # scenario = residential_scenario(
+    #     x_apartments=5, 
+    #     y_apartments=3, 
+    #     n_sta_per_ap=4, 
+    #     size=10, 
+    #     seed=args.seed 
+    # ) 
+
+    scenario = MixScen(small_office_scenario, 2, 4, args.d_ap, max_steps=args.n_steps)
 
     filename = args.filename
     if filename is None:
         filename = (
-            f"d_ap_{args.d_ap:g}_"
-            f"d_sta_{args.d_sta:g}_"
+            f"hmab_"
+            f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"
         )
 
-
+    # scenario.plot_rs()
 
     throughputs = run_experiments(
         scenario=scenario,
