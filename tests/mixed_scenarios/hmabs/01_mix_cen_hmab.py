@@ -10,11 +10,7 @@ from tqdm import tqdm
 from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgent
 from reinforced_lib.agents.mab  import UCB
 from mapc_cmab.agents.mapc_hmab_agent_factory import MapcMABAgentFactory
-<<<<<<< HEAD
 from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario, small_office_scenario_rotated
-=======
-from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario
->>>>>>> b88577a6615a460378c4cf1238d16b7868dddcd0
 from mapc_cmab.loggers.action_reward_logger import Logger 
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
 
@@ -24,13 +20,8 @@ n_steps = 10_000
 
 class MixScen:
     def __init__(self, scenario_factory, d_sta_1: int, d_sta_2: int,  d_ap=d_ap, max_steps: int = n_steps):
-<<<<<<< HEAD
         self.scen1 = small_office_scenario(d_ap=d_ap, d_sta=d_sta_1)
         self.scen2 = small_office_scenario_rotated(d_ap=d_ap, d_sta=d_sta_1)
-=======
-        self.scen1 = scenario_factory(d_ap=d_ap, d_sta=d_sta_1)
-        self.scen2 = scenario_factory(d_ap=d_ap, d_sta=d_sta_2)
->>>>>>> b88577a6615a460378c4cf1238d16b7868dddcd0
         self.step = 0
         self.switch_steps = max_steps // 2
         self.data_rate_fn1 = jax.jit(self.scen1.data_rate_fn)
