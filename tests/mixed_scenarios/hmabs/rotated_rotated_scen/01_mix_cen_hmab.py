@@ -171,12 +171,12 @@ def main():
     #     seed=args.seed 
     # ) 
 
-    scenario = MixScen(small_office_scenario, 2, 4, args.d_ap, max_steps=args.n_steps)
+    scenario = MixScen(small_office_scenario, args.d_sta, args.d_sta, args.d_ap, max_steps=args.n_steps)
 
     filename = args.filename
     if filename is None:
         filename = (
-            f"hmab_"
+            f"hmab_rotated"
             f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"
