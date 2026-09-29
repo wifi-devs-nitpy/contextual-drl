@@ -93,35 +93,39 @@ class MapcDQNAgentFactory:
         
         """
 
-        action_size_lvl1 = 2**(self.n_ap - 1)
-        find_groups_agent = RLib(
-            agent_type=DQN,
+        action_size_lvl1 = 2
+        # actions are binary -> 0 -> participating / 1-> not participating
+        find_groups_agent = {
+            ap: RLib(
+                    agent_type=DQN,
 
-            agent_params = {
-                "q_network": QNetwork(
-                    n_actions=action_size_lvl1,
-                    hidden_dims=(64, 64),
-                ), 
+                    agent_params = {
+                        "q_network": QNetwork(
+                            n_actions=action_size_lvl1,
+                            hidden_dims=(64, 64),
+                        ), 
 
-                "obs_space_shape": (self.n_ap + self.stations_per_ap), # sharing AP, and its station in encoded format  
-                "act_space_size": action_size_lvl1, 
+                        "obs_space_shape": (self.n_ap + self.stations_per_ap), # sharing AP, and its station in encoded format  
+                        "act_space_size": action_size_lvl1, 
 
-                "optimizer": optax.adam(7e-4), 
+                        "optimizer": optax.adam(7e-4), 
 
-                "experience_replay_buffer_size": 1000,
-                "experience_replay_batch_size": 32,
-                "experience_replay_steps": 1,
+                        "experience_replay_buffer_size": 1000,
+                        "experience_replay_batch_size": 32,
+                        "experience_replay_steps": 1,
 
-                #contextual Bandit type
-                "discount": 0.0, 
+                        #contextual Bandit type
+                        "discount": 0.0, 
 
-                "epsilon": 1.0, 
-                "epsilon_decay": 0.995,
-                "epsilon_min": 0.05,
-                **self.agent_params_lvl1
-            },
-            no_ext_mode=True,
-        )
+                        "epsilon": 1.0, 
+                        "epsilon_decay": 0.995,
+                        "epsilon_min": 0.05,
+                        **self.agent_params_lvl1
+                    },
+                    no_ext_mode=True,
+                )
+            for ap in self.access_points
+        }
 
         # we donot need indexing here, as it is only one agent at the level -1 
         # level-2 assign_stations agents, Each AP has an agent that assigns the station to it. 
@@ -138,7 +142,7 @@ class MapcDQNAgentFactory:
                     ),
 
                     "obs_space_shape": (self.n_ap, ),  
-                    "act_space_size": len(self.associations[ap]), 
+                    "act_space_size": action_size_lvl2, 
 
                     "optimizer": optax.adam(7e-4), 
 

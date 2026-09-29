@@ -85,8 +85,8 @@ class HierarchicalMapcDQNAgent(MapcAgent):
 
         self.n_tx_power_levels = n_tx_power_levels 
 
-        self.find_groups_agent_last_step = 0
-        self.find_groups_agent_last_action = 0 
+        self.find_groups_agent_last_step = defaultdict(int)
+        self.find_groups_agent_last_action = defaultdict(int)
 
         self.assign_stations_agent_last_step = defaultdict(int)
         self.assign_stations_agent_last_action = defaultdict(int)
@@ -104,6 +104,7 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         self.access_points = np.asarray(list(associations.keys()))
         self.stations = np.asarray(list(chain.from_iterable(associations.values())))
         self.n_nodes = len(self.access_points) + len(list(chain.from_iterable(associations.values())))
+        self.n_ap = len(associations.keys())
 
     def sample(self, reward) -> tuple[Array, Array]: 
         """ 
@@ -120,34 +121,56 @@ class HierarchicalMapcDQNAgent(MapcAgent):
 
         # loop invariant 
         # everytime the reward is appended, it gets into the index == (step-1)
-        # this means to update a specific agent with a reward I must know the last_step in which it took the action. 
+        # this means to update a specific agent with a reward. I must know the last_step in which it took the action. 
 
         sharing_ap = np.random.choice(self.access_points).item()
         sharing_sta = np.random.choice(self.associations[sharing_ap]).item()
 
         context_lvl1 = self.encoded_sharing_ap(sharing_ap, sharing_sta)
 
-        find_groups_agent_action = self.find_groups_agent.sample(
-                                update_observations={
-                                    'env_state': context_lvl1, 
-                                    'action': self.find_groups_agent_last_action,
-                                    'reward': self.rewards[self.find_groups_agent_last_step], 
-                                    'terminal': False
-                                }, 
-                                sample_observations={
-                                    "env_state": context_lvl1
-                                }
-                        ).item()
+        # find_groups_agent_action = self.find_groups_agent.sample(
+        #                         update_observations={
+        #                             'env_state': context_lvl1, 
+        #                             'action': self.find_groups_agent_last_action,
+        #                             'reward': self.rewards[self.find_groups_agent_last_step], 
+        #                             'terminal': False
+        #                         }, 
+        #                         sample_observations={
+        #                             "env_state": context_lvl1
+        #                         }
+        #                 ).item()
 
-        self.find_groups_agent_last_action = find_groups_agent_action 
-        self.find_groups_agent_last_step = self.step 
+        find_groups_agent_action = np.zeros(shape=self.access_points.shape, dtype=np.int32)
+        find_groups_agent_action[sharing_ap] = 1
+
+        aps_taking_action = self.access_points[self.access_points != sharing_ap]
         
-        selected_ap_group = self.ap_group_action_to_ap_group(ap_group_action=find_groups_agent_action, sharing_ap=sharing_ap)
+        for ap in aps_taking_action:
+            ap = ap.item()
+            action = self.find_groups_agent[ap].sample(
+                                update_observations={
+                                        'env_state': context_lvl1, 
+                                        'action': self.find_groups_agent_last_action[ap],
+                                        'reward': self.rewards[self.find_groups_agent_last_step[ap]], 
+                                        'terminal': False
+                                    }, 
+                                    sample_observations={
+                                        "env_state": context_lvl1
+                                    }
+                                ).item()
+            find_groups_agent_action[ap] = action
+            self.find_groups_agent_last_action[ap] = action
+            self.find_groups_agent_last_step[ap] = self.step 
+
+        
+        # selected_ap_group = self.ap_group_action_to_ap_group(ap_group_action=find_groups_agent_action, sharing_ap=sharing_ap)
 
         # encoding the context for the level-2 
-        context_lvl2 = self.encode_ap_group(sharing_ap=sharing_ap, selected_ap_group=selected_ap_group)
-        selected_aps = self.access_points[context_lvl2.astype(bool)]
+        context_lvl2 = find_groups_agent_action
+        selected_aps = self.access_points[context_lvl2.astype(np.bool)]
 
+        selected_ap_group = selected_aps[selected_aps != sharing_ap]
+        
         ap_sta_pairs = {
             int(ap): self.assign_stations_agent[ap].sample(
                 update_observations={
@@ -162,8 +185,10 @@ class HierarchicalMapcDQNAgent(MapcAgent):
             ).item()
             for ap in selected_ap_group
         } 
+
         #index of ap is actual node index of ap , index of sta is relative index of sta in associations[ap]
         #update the last step, and last action 
+        
         for ap, sta_idx in ap_sta_pairs.items():
             self.assign_stations_agent_last_step[ap] = self.step 
             self.assign_stations_agent_last_action[ap] = sta_idx
