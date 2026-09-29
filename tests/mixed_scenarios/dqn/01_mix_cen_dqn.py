@@ -12,7 +12,7 @@ from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgen
 from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
 from reinforced_lib.agents.mab  import UCB
 from mapc_cmab.agents.mapc_cmab_agent_factory import MapcDQNAgentFactory
-from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario
+from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario, small_office_scenario_rotated
 from mapc_cmab.loggers.action_reward_logger import Logger 
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
 
