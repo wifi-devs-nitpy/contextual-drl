@@ -103,6 +103,7 @@ class MapcDQNAgentFactory:
                         "q_network": QNetwork(
                             n_actions=action_size_lvl1,
                             hidden_dims=(64, 64),
+                            use_layer_norm=True
                         ), 
 
                         "obs_space_shape": (self.n_ap + self.stations_per_ap), # sharing AP, and its station in encoded format  
@@ -139,6 +140,7 @@ class MapcDQNAgentFactory:
                     "q_network": QNetwork(
                         n_actions=len(self.associations[ap]),
                         hidden_dims=(128, 64),
+                        use_layer_norm=True
                     ),
 
                     "obs_space_shape": (self.n_ap, ),  
@@ -178,6 +180,7 @@ class MapcDQNAgentFactory:
                     "q_network": QNetwork(
                         n_actions=action_size_lvl3,
                         hidden_dims=(128, 128),
+                        use_layer_norm=True
                     ),
 
                     "obs_space_shape": (self.n_ap * self.stations_per_ap),  
@@ -217,6 +220,7 @@ class MapcDQNAgentFactory:
                         "q_network": QNetwork(
                             n_actions=self.n_tx_power_levels,
                             hidden_dims=(128, 64),
+                            use_layer_norm=True
                         ),
     
                         "obs_space_shape": (self.n_sta * self.n_links),  
