@@ -197,7 +197,7 @@ def main():
     filename = args.filename
     if filename is None:
         filename = (
-            f"updated_dqn_inital_"
+            f"updated_dqn_arch_l1_"
             f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"
