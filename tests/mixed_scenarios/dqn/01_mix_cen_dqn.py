@@ -85,7 +85,7 @@ common_params = {
     "experience_replay_buffer_size": 1000,
     "experience_replay_batch_size": 32,
     "experience_replay_steps": 1,
-    "epsilon_min": 0.05,
+    "epsilon_min": 0.1,
 }
 
 agent_params_lvl1 = {
@@ -197,7 +197,7 @@ def main():
     filename = args.filename
     if filename is None:
         filename = (
-            f"updated_dqn_arch_l1_"
+            f"updated_dqn_arch_l1_Only_layerNorm"
             f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"

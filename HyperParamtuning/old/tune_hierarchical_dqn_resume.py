@@ -30,7 +30,7 @@ from mapc_cmab.envs.scenario_impl import residential_scenario
 from mapc_cmab.loggers.action_reward_logger import Logger
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
 
-from mapc_dqn_agent_factory_tuned import MapcDQNAgentFactory
+from HyperParamtuning.old.mapc_dqn_agent_factory_tuned import MapcDQNAgentFactory
 
 
 LOG = logging.getLogger("overnight_dqn")
@@ -132,6 +132,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-dir", type=Path, default=Path("./results/overnight"))
     p.add_argument("--cache-dir", type=Path, default=Path("./jax_cache"))
     p.add_argument("--show", action="store_true")
+    p.add_argument("--resume", action="store_true",
+                   help="Resume sweep: load completed config .npy files and skip them.")
     return p.parse_args()
 
 
@@ -251,22 +253,128 @@ def run_single_experiment(config: Config, scenario, run_number: int, n_steps: in
     return throughputs
 
 
-def run_experiment_batch(config: Config, args: argparse.Namespace, n_runs: int, n_steps: int, phase: str) -> np.ndarray:
-    LOG.info("Starting %s: %s | runs=%d steps=%d", phase, config.name, n_runs, n_steps)
-    all_tp = np.zeros((n_runs, n_steps), dtype=np.float32)
+def run_experiment_batch(
+    config: Config,
+    args: argparse.Namespace,
+    n_runs: int,
+    n_steps: int,
+    phase: str,
+) -> np.ndarray:
+    """
+    Run one configuration.
+
+    Each completed run is saved immediately as:
+        <phase>_<config>_run<N>.npy
+
+    The combined result is saved only after all runs complete:
+        <phase>_<config>.npy
+
+    This makes future executions power-loss tolerant at run boundaries.
+    """
+    LOG.info(
+        "Starting %s: %s | runs=%d steps=%d",
+        phase, config.name, n_runs, n_steps
+    )
+
+    phase_prefix = "sweep" if phase == "sweep" else "final"
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    run_arrays: list[np.ndarray] = []
+
     for run_number in range(n_runs):
-        # Same scenario/PRNG seed across configs for a fair comparison.
-        # The config only changes the learner, not the environment sample.
+        run_path = args.output_dir / f"{phase_prefix}_{config.name}_run{run_number}.npy"
+
+        if args.resume and phase == "sweep" and run_path.exists():
+            curve = np.load(run_path)
+            if curve.shape == (n_steps,):
+                LOG.info(
+                    "RESUME: skipping completed run | config=%s run=%d file=%s",
+                    config.name, run_number, run_path.name
+                )
+                run_arrays.append(curve)
+                continue
+            LOG.warning(
+                "RESUME: ignoring invalid checkpoint %s with shape=%s",
+                run_path.name, curve.shape
+            )
+
         run_seed = args.seed + run_number
         scenario = make_scenario(run_seed)
-        all_tp[run_number] = run_single_experiment(
+
+        curve = run_single_experiment(
             config=config,
             scenario=scenario,
             run_number=run_number,
             n_steps=n_steps,
             seed=run_seed,
         )
+
+        # Save immediately after EVERY completed run.
+        np.save(run_path, curve)
+        LOG.info(
+            "Checkpoint saved | config=%s run=%d -> %s",
+            config.name, run_number, run_path
+        )
+        run_arrays.append(curve)
+
+    all_tp = np.stack(run_arrays, axis=0)
+
+    combined_path = args.output_dir / f"{phase_prefix}_{config.name}.npy"
+    np.save(combined_path, all_tp)
+
+    # Configuration metadata is also durable.
+    save_config_json(
+        config,
+        args.output_dir / f"{phase_prefix}_{config.name}.json"
+    )
+
     return all_tp
+
+
+def load_completed_sweep(
+    config: Config,
+    args: argparse.Namespace,
+    n_runs: int,
+    n_steps: int,
+) -> np.ndarray | None:
+    """
+    Load an already completed configuration.
+
+    The combined file is the authoritative marker that the WHOLE
+    configuration finished. Individual run files are not enough to skip
+    the configuration because the aggregate may not have been finalized.
+    """
+    combined_path = args.output_dir / f"sweep_{config.name}.npy"
+
+    if not combined_path.exists():
+        return None
+
+    try:
+        curves = np.load(combined_path)
+    except Exception as exc:
+        LOG.warning(
+            "Could not load %s; will rerun config. Error: %s",
+            combined_path,
+            exc,
+        )
+        return None
+
+    expected_shape = (n_runs, n_steps)
+    if curves.shape != expected_shape:
+        LOG.warning(
+            "Completed-file shape mismatch for %s: got %s expected %s; "
+            "will rerun config.",
+            combined_path.name,
+            curves.shape,
+            expected_shape,
+        )
+        return None
+
+    LOG.info(
+        "RESUME: skipping completed configuration %s",
+        config.name,
+    )
+    return curves
 
 
 def save_config_json(config: Config, path: Path) -> None:
@@ -348,17 +456,36 @@ def main() -> None:
 
     if args.mode in ("sweep", "all"):
         for config in SWEEP_CONFIGS:
-            curves = run_experiment_batch(
-                config=config,
-                args=args,
-                n_runs=args.sweep_runs,
-                n_steps=args.sweep_steps,
-                phase="sweep",
-            )
+            curves = None
+
+            if args.resume:
+                curves = load_completed_sweep(
+                    config=config,
+                    args=args,
+                    n_runs=args.sweep_runs,
+                    n_steps=args.sweep_steps,
+                )
+
+            if curves is None:
+                curves = run_experiment_batch(
+                    config=config,
+                    args=args,
+                    n_runs=args.sweep_runs,
+                    n_steps=args.sweep_steps,
+                    phase="sweep",
+                )
+
             results[config.name] = curves
             metrics[config.name] = aggregate_run_curves(curves)
+
+            # Existing completed configs will already have these files,
+            # but rewriting them is harmless and keeps outputs consistent.
             np.save(args.output_dir / f"sweep_{config.name}.npy", curves)
-            save_config_json(config, args.output_dir / f"sweep_{config.name}.json")
+            save_config_json(
+                config,
+                args.output_dir / f"sweep_{config.name}.json",
+            )
+
             LOG.info("%s metrics: %s", config.name, metrics[config.name])
 
         save_metrics_csv(metrics, args.output_dir / "sweep_metrics.csv")
@@ -374,7 +501,10 @@ def main() -> None:
             args.output_dir / "sweep_learning_curves_top12.png",
         )
         (args.output_dir / "sweep_ranking.txt").write_text(
-            "\n".join(f"{i + 1}. {name} score={metrics[name]['composite_score']:.4f}" for i, name in enumerate(ranking)),
+            "\n".join(
+                f"{i + 1}. {name} score={metrics[name]['composite_score']:.4f}"
+                for i, name in enumerate(ranking)
+            ),
             encoding="utf-8",
         )
         selected_name = ranking[0]

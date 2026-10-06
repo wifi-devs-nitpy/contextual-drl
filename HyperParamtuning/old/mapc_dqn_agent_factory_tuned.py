@@ -22,7 +22,7 @@ from reinforced_lib.agents.deep import DQN
 
 from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
 from mapc_cmab.agents.mapc_agent import MapcAgent
-from q_network_tuned import (
+from HyperParamtuning.old.q_network_tuned import (
     QNetwork_lv1,
     QNetwork_lv2,
     QNetwork_lv3,

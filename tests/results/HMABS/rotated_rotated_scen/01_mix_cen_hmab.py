@@ -6,12 +6,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import t
 from tqdm import tqdm
-import optax 
 
 from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgent
-from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
 from reinforced_lib.agents.mab  import UCB
-from mapc_cmab.agents.mapc_cmab_agent_factory import MapcDQNAgentFactory
+from mapc_cmab.agents.mapc_hmab_agent_factory import MapcMABAgentFactory
 from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario, small_office_scenario_rotated
 from mapc_cmab.loggers.action_reward_logger import Logger 
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
@@ -30,7 +28,7 @@ class MixScen:
         self.data_rate_fn2 = jax.jit(self.scen2.data_rate_fn)
         self.data_rate_fn = self.data_rate_fn1
         self.associations = self.scen1.associations
-        self.str_repr = f"mix_scen_ap_rotated_{d_ap}_dsta_{d_sta_1}_{d_sta_2}_s{max_steps}_"
+        self.str_repr = f"mix_scen_ap_{d_ap}_dsta_{d_sta_1}_{d_sta_2}_s{max_steps}"
 
     def __call__(self, key, link_ap_sta):
         self.step += 1
@@ -79,53 +77,34 @@ def parse_args():
     return parser.parse_args()
 
 
-
-common_params = {
-    "optimizer": optax.adam(1e-3),
-    "experience_replay_buffer_size": 1000,
-    "experience_replay_batch_size": 32,
-    "experience_replay_steps": 1,
-    "epsilon_min": 0.05,
-}
-
-agent_params_lvl1 = {
-    **common_params,
-    "epsilon_decay": 0.995,
-}
-
-agent_params_lvl2 = {
-    **common_params,
-    "epsilon_decay": 0.995,
-}
-
-agent_params_lvl3 = {
-    **common_params,
-    "epsilon_decay": 0.999,
-}
-
-agent_params_lvl4 = {
-    **common_params,
-    "epsilon_decay": 0.995,
-}
-
-
 def create_agent_factory(scenario, args):
-    return MapcDQNAgentFactory(
-        associations=scenario.associations,
-        agent_params_lvl1=agent_params_lvl1,
-        agent_params_lvl2=agent_params_lvl2,
-        agent_params_lvl3=agent_params_lvl3,
-        agent_params_lvl4=agent_params_lvl4,
-        n_tx_power_levels=args.n_tx_power_levels,
-        n_links=args.n_links,
-        seed=args.seed,
-    )
-
+    return MapcMABAgentFactory(
+            associations=scenario.associations,
+            agent_type=UCB,
+            agent_params_lvl1={
+                "c": 95.0878460790544,
+                "gamma": 0.8768231620396211
+            },
+            agent_params_lvl2={
+                "c": 95.0878460790544,
+                "gamma": 0.8768231620396211
+            },
+            agent_params_lvl3={
+                "c": 2.08,
+                "gamma": 0.98,
+            },
+            agent_params_lvl4={
+                "c": 1.5,
+                "gamma": 0.99
+            },
+            n_tx_power_levels=args.n_tx_power_levels,
+            n_links=args.n_links,
+        )
 
 
 def run_single_experiment(agent_factory, scenario, run_number, n_steps, key):
     # logger = Logger(run_number=run_number, exp_name=f"{scenario.str_repr}_HMAB_UCB")
-    agent = agent_factory.create_hierarchical_DQN_cmapc_agent(logger=None)
+    agent = agent_factory.create_hierarchical_mapc_agent(logger=None)
     throughputs = np.zeros(n_steps, dtype=np.float32)
     previous_throughput = 0.0
 
@@ -177,7 +156,7 @@ def main():
     jax.config.update("jax_persistent_cache_enable_xla_caches", "all")
 
     
-    
+
     # scenario = small_office_scenario(
     #     d_ap=args.d_ap,
     #     d_sta=args.d_sta,
@@ -197,7 +176,7 @@ def main():
     filename = args.filename
     if filename is None:
         filename = (
-            f"updated_archL1_Only_layernorm_"
+            f"hmab_rotated"
             f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"
