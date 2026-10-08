@@ -12,22 +12,22 @@ mkdir -p "$logs_dir"
 
 log_file="${logs_dir}/${filename}_${timestamp}.log"
 
-exec > >(tee -a "$log_file") 2>&1
+# exec > >(tee -a "$log_file") 2>&1
 
 echo "DQN DYnamic" 
 echo "Script execution started at - $(date) -"
 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 10 --d-sta 2 -n-sta-per-ap 6 --n-runs 50 --n-steps 10000 & 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 20 --d-sta 2 -n-sta-per-ap 6 --n-runs 50 --n-steps 10000 & 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 30 --d-sta 2 -n-sta-per-ap 6 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 10 --d-sta 2 --n-sta-per-ap 6 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 20 --d-sta 2 --n-sta-per-ap 6 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 30 --d-sta 2 --n-sta-per-ap 6 --n-runs 50 --n-steps 10000 
 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 10 --d-sta 2 -n-sta-per-ap 8 --n-runs 50 --n-steps 10000 & 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 20 --d-sta 2 -n-sta-per-ap 8 --n-runs 50 --n-steps 10000 & 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 30 --d-sta 2 -n-sta-per-ap 8 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 10 --d-sta 2 --n-sta-per-ap 8 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 20 --d-sta 2 --n-sta-per-ap 8 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 30 --d-sta 2 --n-sta-per-ap 8 --n-runs 50 --n-steps 10000 
 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 10 --d-sta 2 -n-sta-per-ap 10 --n-runs 50 --n-steps 10000 & 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 20 --d-sta 2 -n-sta-per-ap 10 --n-runs 50 --n-steps 10000 & 
-python 02_mix_cen_dqn_vary_stations.py --d-ap 30 --d-sta 2 -n-sta-per-ap 10 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 10 --d-sta 2 --n-sta-per-ap 10 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 20 --d-sta 2 --n-sta-per-ap 10 --n-runs 50 --n-steps 10000 & 
+python 02_mix_cen_dqn_vary_stations.py --d-ap 30 --d-sta 2 --n-sta-per-ap 10 --n-runs 50 --n-steps 10000  
 
 wait 
 

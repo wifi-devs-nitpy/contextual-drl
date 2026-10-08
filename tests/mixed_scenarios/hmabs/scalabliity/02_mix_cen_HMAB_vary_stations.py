@@ -109,7 +109,7 @@ def create_agent_factory(scenario, args):
 
 def run_single_experiment(agent_factory, scenario, run_number, n_steps, key):
     # logger = Logger(run_number=run_number, exp_name=f"{scenario.str_repr}_HMAB_UCB")
-    agent = agent_factory.create_hierarchical_DQN_cmapc_agent(logger=None)
+    agent = agent_factory.create_hierarchical_mapc_agent(logger=None)
     throughputs = np.zeros(n_steps, dtype=np.float32)
     previous_throughput = 0.0
 
