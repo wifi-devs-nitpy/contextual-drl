@@ -61,8 +61,8 @@ def network_data_rate_mlo(
     tx_power_indices = link_ap_sta[1]    
 
 
-    if (walls == None):
-        walls = jnp.zeros((n_nodes, n_nodes), dtype=float)
+    # if (walls == None):
+    #     walls = jnp.zeros((n_nodes, n_nodes), dtype=float)
 
     net_data_rate_mlo_1 = partial(network_data_rate, pos=pos, walls=walls, mcs=mcs, sigma=sigma)
     

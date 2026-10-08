@@ -188,3 +188,4 @@ jax_cache
 
 # email status update file 
 /tests/mixed_scenarios/dqn/discount_factor_variation/bash_scripts_dqn_d_var/send_email.py
+/randomFolder

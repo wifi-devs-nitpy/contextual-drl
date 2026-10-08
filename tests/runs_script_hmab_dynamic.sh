@@ -21,8 +21,10 @@ echo "Script execution started at - $(date) -"
 # python run_experiment.py --d-ap 30 --d-sta 2 --n-runs 50 --n-steps 10000
 # python run_experiment.py --d-ap 10 --d-sta 4 --n-runs 50 --n-steps 10000
 
-# python mixed_scenarios/hmabs/01_mix_cen_hmab.py --d-ap 10 --d-sta 2 --n-runs 50 --n-steps 10000
-python mixed_scenarios/hmabs/01_mix_cen_hmab.py --d-ap 20 --d-sta 2 --n-runs 50 --n-steps 10000
-python mixed_scenarios/hmabs/01_mix_cen_hmab.py --d-ap 30 --d-sta 2 --n-runs 50 --n-steps 10000
+python "C:\Users\devarshi\Documents\wifi_9\mapc-cmab\tests\run_experiment.py" --d-ap 10 --d-sta 2 --n-runs 50 --n-steps 10000 "dqn_with_layerNorm_newParams" & 
+python "C:\Users\devarshi\Documents\wifi_9\mapc-cmab\tests\run_experiment.py" --d-ap 20 --d-sta 2 --n-runs 50 --n-steps 200000 --filename "dqn_with_layerNorm_newParams" &
+python "C:\Users\devarshi\Documents\wifi_9\mapc-cmab\tests\run_experiment.py" --d-ap 30 --d-sta 2 --n-runs 50 --n-steps 10000 --filename "dqn_with_layerNorm_newParams" & 
+
+wait 
 
 echo "Script execution completed at - $(date) -"

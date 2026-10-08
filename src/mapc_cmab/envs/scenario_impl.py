@@ -270,6 +270,257 @@ def small_office_scenario_rotated(d_ap: Scalar, d_sta: Scalar, n_steps: int = fl
     return StaticScenario(pos, associations, n_steps, walls=walls, walls_pos=walls_pos, str_repr=str_repr, channel_width=channel_width, **kwargs)
 
 
+def small_office_scenario_with_var_stations(
+    d_ap: Scalar,
+    d_sta: Scalar,
+    n_sta_per_ap: int = 4,
+    n_steps: int = float("inf"),
+    channel_width: int = None,
+    **kwargs
+) -> StaticScenario:
+    """
+    Scalable Small Office Scenario
+    ===============================
+
+    4 APs arranged in a square:
+
+        AP D ---------------- AP C
+         |                      |
+         |                      |
+         |                      |
+        AP A ---------------- AP B
+
+    Each AP has `n_sta_per_ap` associated STAs.
+
+    n_sta_per_ap = 4  -> 16 STAs
+    n_sta_per_ap = 6  -> 24 STAs
+    n_sta_per_ap = 8  -> 32 STAs
+    n_sta_per_ap = 12 -> 48 STAs
+
+    All STAs are placed at distance d_sta from their
+    associated AP and uniformly distributed around it.
+    """
+
+    str_repr = f"small_office_{d_ap}_{d_sta}_{n_sta_per_ap}sta"
+
+    # =========================================================
+    # 1. AP POSITIONS
+    # =========================================================
+
+    ap_pos = [
+        [0 * d_ap, 0 * d_ap],  # AP A
+        [1 * d_ap, 0 * d_ap],  # AP B
+        [1 * d_ap, 1 * d_ap],  # AP C
+        [0 * d_ap, 1 * d_ap],  # AP D
+    ]
+
+    n_aps = len(ap_pos)
+
+    # =========================================================
+    # 2. STA POSITIONS
+    # =========================================================
+    #
+    # Place STAs uniformly on a circle of radius d_sta
+    # around each AP.
+    #
+    # This preserves:
+    #
+    #       distance(AP, STA) = d_sta
+    #
+    # regardless of the number of STAs.
+    #
+    # For example:
+    #
+    # 4 STAs  -> every 90 degrees
+    # 6 STAs  -> every 60 degrees
+    # 8 STAs  -> every 45 degrees
+    # 12 STAs -> every 30 degrees
+    #
+    # =========================================================
+
+    angles = jnp.linspace(
+        0,
+        2 * jnp.pi,
+        n_sta_per_ap,
+        endpoint=False
+    )
+
+    dx = d_sta * jnp.cos(angles)
+    dy = d_sta * jnp.sin(angles)
+
+    sta_pos = [
+        [
+            x + dx[i],
+            y + dy[i]
+        ]
+        for x, y in ap_pos
+        for i in range(n_sta_per_ap)
+    ]
+
+    # APs first, followed by STAs
+    pos = jnp.array(ap_pos + sta_pos)
+
+    # =========================================================
+    # 3. ASSOCIATIONS
+    # =========================================================
+    #
+    # Node indexing:
+    #
+    # APs:
+    #   0, 1, 2, 3
+    #
+    # STAs begin at index 4.
+    #
+    # Example for n_sta_per_ap = 4:
+    #
+    # AP A -> 4, 5, 6, 7
+    # AP B -> 8, 9, 10, 11
+    # AP C -> 12, 13, 14, 15
+    # AP D -> 16, 17, 18, 19
+    #
+    # =========================================================
+
+    associations = {}
+
+    sta_start = n_aps
+
+    for ap in range(n_aps):
+
+        start = sta_start + ap * n_sta_per_ap
+        end = start + n_sta_per_ap
+
+        associations[ap] = list(range(start, end))
+
+    aps = associations.keys()
+
+    # =========================================================
+    # 4. WALL MATRIX
+    # =========================================================
+
+    n_nodes = n_aps + n_aps * n_sta_per_ap
+
+    walls = jnp.zeros((n_nodes, n_nodes))
+
+    # Same basic wall structure as the original scenario
+    walls = walls.at[n_aps:, n_aps:].set(True)
+
+    for i in range(n_nodes):
+        for j in range(n_nodes):
+
+            # -------------------------------------------------
+            # Both are APs
+            # -------------------------------------------------
+
+            if i in aps and j in aps:
+
+                walls = walls.at[i, j].set(i != j)
+
+            # -------------------------------------------------
+            # i is an AP
+            # -------------------------------------------------
+
+            elif i in aps:
+
+                for ap_j in set(aps) - {i}:
+
+                    for sta in associations[ap_j]:
+
+                        walls = walls.at[i, sta].set(True)
+
+            # -------------------------------------------------
+            # j is an AP
+            # -------------------------------------------------
+
+            elif j in aps:
+
+                for ap_i in set(aps) - {j}:
+
+                    for sta in associations[ap_i]:
+
+                        walls = walls.at[sta, j].set(True)
+
+            # -------------------------------------------------
+            # Both are STAs
+            # -------------------------------------------------
+
+            else:
+
+                for ap in aps:
+
+                    if (
+                        i in associations[ap]
+                        and j in associations[ap]
+                    ):
+
+                        walls = walls.at[i, j].set(False)
+
+    # =========================================================
+    # 5. REMOVE WALLS
+    # =========================================================
+    #
+    # Keep exactly the same physical wall openings as the
+    # original scenario.
+    #
+    # These operations therefore remain unchanged conceptually.
+    #
+    # =========================================================
+
+    # Remove wall between AP A and AP B
+    walls = walls.at[:2, :2].set(False)
+
+    # AP B <-> AP A STAs
+    a_sta = associations[0]
+    b_sta = associations[1]
+
+    walls = walls.at[1, jnp.array(a_sta)].set(False)
+    walls = walls.at[jnp.array(a_sta), 1].set(False)
+
+    walls = walls.at[0, jnp.array(b_sta)].set(False)
+    walls = walls.at[jnp.array(b_sta), 0].set(False)
+
+    # Remove walls between STAs belonging to AP A and AP B
+    walls = walls.at[
+        jnp.ix_(jnp.array(a_sta), jnp.array(b_sta))
+    ].set(False)
+
+    walls = walls.at[
+        jnp.ix_(jnp.array(b_sta), jnp.array(a_sta))
+    ].set(False)
+
+    # =========================================================
+    # 6. WALL POSITIONS
+    # =========================================================
+
+    walls_pos = jnp.array([
+        [
+            -d_ap / 2,
+            d_ap / 2,
+            d_ap + d_ap / 2,
+            d_ap / 2
+        ],
+        [
+            d_ap / 2,
+            d_ap / 2,
+            d_ap / 2,
+            d_ap + d_ap / 2
+        ],
+    ])
+
+    # =========================================================
+    # 7. RETURN SCENARIO
+    # =========================================================
+
+    return StaticScenario(
+        pos,
+        associations,
+        n_steps,
+        walls=walls,
+        walls_pos=walls_pos,
+        str_repr=str_repr,
+        channel_width=channel_width,
+        **kwargs
+    )
+
 
 def openwifi_scenario(channel_width: int = None):
     class OpenWifiScenario(StaticScenario):

@@ -17,8 +17,10 @@ exec > >(tee -a "$log_file") 2>&1
 echo "DQN DYnamic" 
 echo "Script execution started at - $(date) -"
 
-python mixed_scenarios/dqn/01_mix_cen_dqn.py --d-ap 10 --d-sta 2 --n-runs 50 --n-steps 10000
-python mixed_scenarios/dqn/01_mix_cen_dqn.py --d-ap 20 --d-sta 2 --n-runs 50 --n-steps 10000
-python mixed_scenarios/dqn/01_mix_cen_dqn.py --d-ap 30 --d-sta 2 --n-runs 50 --n-steps 10000
+python mixed_scenarios/dqn/01_mix_cen_dqn.py --d-ap 10 --d-sta 2 --n-runs 50 --n-steps 10000 & 
+python mixed_scenarios/dqn/01_mix_cen_dqn.py --d-ap 20 --d-sta 2 --n-runs 50 --n-steps 10000 & 
+python mixed_scenarios/dqn/01_mix_cen_dqn.py --d-ap 30 --d-sta 2 --n-runs 50 --n-steps 10000 & 
+
+wait 
 
 echo "Script execution completed at - $(date) -"

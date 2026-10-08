@@ -12,7 +12,7 @@ from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgen
 from mapc_cmab.agents.hierarchical_dqn import HierarchicalMapcDQNAgent
 from reinforced_lib.agents.mab  import UCB
 from mapc_cmab.agents.mapc_cmab_agent_factory import MapcDQNAgentFactory
-from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario, small_office_scenario_rotated
+from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario, small_office_scenario_rotated, small_office_scenario_with_var_stations
 from mapc_cmab.loggers.action_reward_logger import Logger 
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
 
@@ -21,9 +21,9 @@ d_ap = 10
 n_steps = 10_000
 
 class MixScen:
-    def __init__(self, scenario_factory, d_sta_1: int, d_sta_2: int,  d_ap=d_ap, max_steps: int = n_steps):
-        self.scen1 = scenario_factory(d_ap=d_ap, d_sta=d_sta_1)
-        self.scen2 = scenario_factory(d_ap=d_ap, d_sta=d_sta_2)
+    def __init__(self, scenario_factory, d_sta_1: int, d_sta_2: int,  n_sta_per_ap:int, d_ap=d_ap, max_steps: int = n_steps):
+        self.scen1 = scenario_factory(d_ap=d_ap, d_sta=d_sta_1, n_sta_per_ap=n_sta_per_ap)
+        self.scen2 = scenario_factory(d_ap=d_ap, d_sta=d_sta_2, n_sta_per_ap=n_sta_per_ap)
         self.step = 0
         self.switch_steps = max_steps // 2
         self.data_rate_fn1 = jax.jit(self.scen1.data_rate_fn)
@@ -57,6 +57,8 @@ def parse_args():
                         help="Number of independent runs.")
     parser.add_argument("--n-steps", type=int, default=10_000,
                         help="Number of simulation steps per run.")
+    parser.add_argument("--n-sta-per-ap", type=int, default=4, 
+                        help="Number of stations per AP")
     parser.add_argument("--n-links", type=int, default=3,
                         help="Number of available links.")
     parser.add_argument("--n-tx-power-levels", type=int, default=4,
@@ -80,40 +82,32 @@ def parse_args():
 
 
 
+common_params = {
+    "optimizer": optax.adam(1e-3),
+    "experience_replay_buffer_size": 1000,
+    "experience_replay_batch_size": 32,
+    "experience_replay_steps": 1,
+    "epsilon_min": 0.05,
+}
+
 agent_params_lvl1 = {
-    "optimizer": optax.adamw(learning_rate=0.000694878, weight_decay=1e-05),
-    "experience_replay_buffer_size": 500,
-    "experience_replay_batch_size": 16,
-    "experience_replay_steps": 8,
-    "epsilon_min": 0.15,
-    "epsilon_decay": 0.99943032,
+    **common_params,
+    "epsilon_decay": 0.995,
 }
 
 agent_params_lvl2 = {
-    "optimizer": optax.adam(learning_rate=0.000313801),
-    "experience_replay_buffer_size": 500,
-    "experience_replay_batch_size": 64,
-    "experience_replay_steps": 1,
-    "epsilon_min": 0.1,
-    "epsilon_decay": 0.99766987,
+    **common_params,
+    "epsilon_decay": 0.995,
 }
 
 agent_params_lvl3 = {
-    "optimizer": optax.adam(learning_rate=0.00090314),
-    "experience_replay_buffer_size": 10000,
-    "experience_replay_batch_size": 32,
-    "experience_replay_steps": 8,
-    "epsilon_min": 0.01,
-    "epsilon_decay": 0.99885575,
+    **common_params,
+    "epsilon_decay": 0.999,
 }
 
 agent_params_lvl4 = {
-    "optimizer": optax.adamw(learning_rate=0.000920643, weight_decay=1e-05),
-    "experience_replay_buffer_size": 2000,
-    "experience_replay_batch_size": 32,
-    "experience_replay_steps": 8,
-    "epsilon_min": 0.05,
-    "epsilon_decay": 0.98089447,
+    **common_params,
+    "epsilon_decay": 0.995,
 }
 
 
@@ -200,12 +194,12 @@ def main():
     #     seed=args.seed 
     # ) 
 
-    scenario = MixScen(small_office_scenario, 2, 4, args.d_ap, max_steps=args.n_steps)
+    scenario = MixScen(small_office_scenario_with_var_stations, 2, 4, args.n_sta_per_ap, args.d_ap, max_steps=args.n_steps)
 
     filename = args.filename
     if filename is None:
         filename = (
-            f"after_layerNomr_HypTuning_"
+            f"varying_stat_scala_n_sta_{args.n_sta_per_ap}"
             f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"

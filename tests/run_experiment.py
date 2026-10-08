@@ -49,32 +49,41 @@ def parse_args():
     return parser.parse_args()
 
 
-common_params = {
-    "optimizer": optax.adam(7e-4),
-    "experience_replay_buffer_size": 5000,
-    "experience_replay_batch_size": 64,
-    "experience_replay_steps": 1,
-    "epsilon_min": 0.05,
-}
 
 agent_params_lvl1 = {
-    **common_params,
-    "epsilon_decay": 0.995,
+    "optimizer": optax.adamw(learning_rate=0.000694878, weight_decay=1e-5),
+    "experience_replay_buffer_size": 500,
+    "experience_replay_batch_size": 16,
+    "experience_replay_steps": 8,
+    "epsilon_min": 0.15,
+    "epsilon_decay": 0.99943032,
 }
 
 agent_params_lvl2 = {
-    **common_params,
-    "epsilon_decay": 0.995,
+    "optimizer": optax.adam(learning_rate=0.000313801),
+    "experience_replay_buffer_size": 500,
+    "experience_replay_batch_size": 64,
+    "experience_replay_steps": 1,
+    "epsilon_min": 0.1,
+    "epsilon_decay": 0.99766987,
 }
 
 agent_params_lvl3 = {
-    **common_params,
-    "epsilon_decay": 0.999,
+    "optimizer": optax.adam(learning_rate=0.00090314),
+    "experience_replay_buffer_size": 10000,
+    "experience_replay_batch_size": 32,
+    "experience_replay_steps": 8,
+    "epsilon_min": 0.01,
+    "epsilon_decay": 0.99885575,
 }
 
 agent_params_lvl4 = {
-    **common_params,
-    "epsilon_decay": 0.995,
+    "optimizer": optax.adamw(learning_rate=0.000920643, weight_decay=1e-5),
+    "experience_replay_buffer_size": 2000,
+    "experience_replay_batch_size": 32,
+    "experience_replay_steps": 8,
+    "epsilon_min": 0.05,
+    "epsilon_decay": 0.98089447,
 }
 
 
@@ -92,7 +101,7 @@ def create_agent_factory(scenario, args):
 
 
 def run_single_experiment(agent_factory, scenario, run_number, n_steps, key):
-    logger = Logger(run_number=run_number, exp_name=scenario.str_repr)
+    # logger = Logger(run_number=run_number, exp_name=scenario.str_repr)
     agent = agent_factory.create_hierarchical_DQN_cmapc_agent(logger=logger)
 
     throughputs = np.zeros(n_steps, dtype=np.float32)
@@ -111,7 +120,7 @@ def run_single_experiment(agent_factory, scenario, run_number, n_steps, key):
         throughputs[step] = data_rate
         previous_throughput = data_rate
 
-    logger.save(directory=f"logs/{scenario.str_repr}")
+    # logger.save(directory=f"logs/{scenario.str_repr}")
 
     return throughputs
 
@@ -154,13 +163,11 @@ def main():
     filename = args.filename
     if filename is None:
         filename = (
-            f"d_ap_{args.d_ap:g}_"
+            f"dqn_layerNM_1million_d_ap_{args.d_ap:g}_"
             f"d_sta_{args.d_sta:g}_"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"
         )
-
-
 
     throughputs = run_experiments(
         scenario=scenario,

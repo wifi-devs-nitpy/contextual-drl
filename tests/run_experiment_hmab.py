@@ -10,7 +10,7 @@ from tqdm import tqdm
 from mapc_cmab.agents.hierarchical_mab_mapc_agent import HierarchicalMABMapcAgent
 from reinforced_lib.agents.mab  import UCB
 from mapc_cmab.agents.mapc_hmab_agent_factory import MapcMABAgentFactory
-from mapc_cmab.envs.scenario_impl import residential_scenario
+from mapc_cmab.envs.scenario_impl import residential_scenario, small_office_scenario
 from mapc_cmab.loggers.action_reward_logger import Logger 
 from mapc_cmab.plots.throughput_analysis.throughput_ci import analyze_and_plot_throughputs
 
@@ -129,7 +129,7 @@ def main():
     filename = args.filename
     if filename is None:
         filename = (
-            "HMAB_UCB"
+            "HMAB_UCB_100k"
             f"d_ap_{args.d_ap:g}_"
             f"d_sta_{args.d_sta:g}_"
             f"runs_{args.n_runs}_"
@@ -142,13 +142,11 @@ def main():
     #     n_tx_power_levels=args.n_tx_power_levels
     # )
 
-    scenario = residential_scenario(
-        x_apartments=5, 
-        y_apartments=3, 
-        n_sta_per_ap=4, 
-        size=10, 
-        seed=args.seed 
-    ) 
+    scenario = small_office_scenario(
+            d_ap=args.d_ap,
+            d_sta=args.d_sta,
+            n_tx_power_levels=args.n_tx_power_levels
+        )
 
     scenario.plot_rs()
 
