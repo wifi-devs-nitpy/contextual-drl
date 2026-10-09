@@ -79,41 +79,32 @@ def parse_args():
     return parser.parse_args()
 
 
+common_params = {
+    "optimizer": optax.adam(1e-3),
+    "experience_replay_buffer_size": 1000,
+    "experience_replay_batch_size": 32,
+    "experience_replay_steps": 1,
+    "epsilon_min": 0.1,
+}
 
 agent_params_lvl1 = {
-    "optimizer": optax.adamw(learning_rate=0.000694878, weight_decay=1e-05),
-    "experience_replay_buffer_size": 500,
-    "experience_replay_batch_size": 16,
-    "experience_replay_steps": 8,
-    "epsilon_min": 0.15,
-    "epsilon_decay": 0.99943032,
+    **common_params,
+    "epsilon_decay": 0.995,
 }
 
 agent_params_lvl2 = {
-    "optimizer": optax.adam(learning_rate=0.000313801),
-    "experience_replay_buffer_size": 500,
-    "experience_replay_batch_size": 64,
-    "experience_replay_steps": 1,
-    "epsilon_min": 0.1,
-    "epsilon_decay": 0.99766987,
+    **common_params,
+    "epsilon_decay": 0.995,
 }
 
 agent_params_lvl3 = {
-    "optimizer": optax.adam(learning_rate=0.00090314),
-    "experience_replay_buffer_size": 10000,
-    "experience_replay_batch_size": 32,
-    "experience_replay_steps": 8,
-    "epsilon_min": 0.01,
-    "epsilon_decay": 0.99885575,
+    **common_params,
+    "epsilon_decay": 0.999,
 }
 
 agent_params_lvl4 = {
-    "optimizer": optax.adamw(learning_rate=0.000920643, weight_decay=1e-05),
-    "experience_replay_buffer_size": 2000,
-    "experience_replay_batch_size": 32,
-    "experience_replay_steps": 8,
-    "epsilon_min": 0.05,
-    "epsilon_decay": 0.98089447,
+    **common_params,
+    "epsilon_decay": 0.995,
 }
 
 
@@ -205,7 +196,7 @@ def main():
     filename = args.filename
     if filename is None:
         filename = (
-            f"after_layerNomr_HypTuning_"
+            f"layer_and_reward_norm"
             f"{scenario.str_repr}"
             f"runs_{args.n_runs}_"
             f"steps_{args.n_steps}"

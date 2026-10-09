@@ -116,7 +116,7 @@ class HierarchicalMapcDQNAgent(MapcAgent):
         """
 
         self.step += 1
-        self.rewards.append(reward/100)
+        self.rewards.append(reward/10)
 
         # loop invariant 
         # everytime the reward is appended, it gets into the index == (step-1)
